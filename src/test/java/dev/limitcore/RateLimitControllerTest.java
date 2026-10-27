@@ -70,6 +70,21 @@ class RateLimitControllerTest {
         assertThrows(IllegalArgumentException.class, () ->
             new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60, "fixed-window", "alpha=short"));
     }
+    @Test void appliesTenantSpecificCapacities() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(1L);
+        var controller = new RateLimitController(redis, "", 10, 60, "fixed-window",
+            "alpha=abcdefghijklmnop,beta=qrstuvwxyzabcdef", "alpha=2,beta=7");
+        controller.check("abcdefghijklmnop", new RateLimitController.CheckRequest("shared"));
+        controller.check("qrstuvwxyzabcdef", new RateLimitController.CheckRequest("shared"));
+        verify(redis).execute(any(RedisScript.class), anyList(), eq("60000"), eq("2"));
+        verify(redis).execute(any(RedisScript.class), anyList(), eq("60000"), eq("7"));
+    }
+    @Test void rejectsUnknownTenantQuota() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60,
+                "fixed-window", "alpha=abcdefghijklmnop", "beta=3"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
