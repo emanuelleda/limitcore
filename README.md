@@ -1,55 +1,88 @@
-# LimitCore
+<div align="center">
+
+# ⚡ LimitCore
+
+### Controle de requisições distribuído, com decisões atômicas e arquitetura orientada à confiabilidade.
+
+**Java 25 · Spring Boot · Redis · Lua · Docker**
 
 [![CI](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml)
 [![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
-![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
+![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Lua-DC382D?logo=redis&logoColor=white)
+![MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-2563EB)
 
-**API de controle distribuído de requisições (rate limiting)** desenvolvida com Java 25, Spring Boot e Redis.
+**[Começar](#-início-rápido) · [Arquitetura](#-arquitetura) · [Algoritmos](#-algoritmos) · [Documentação](#-documentação)**
 
-O LimitCore permite que aplicações consultem se uma solicitação deve ser autorizada conforme uma quota configurada no servidor. Instâncias diferentes da API compartilham o estado no Redis, usando scripts Lua para operações atômicas.
+</div>
 
-> **Estado:** projeto open source em evolução. Os testes automatizados não substituem auditoria de segurança, testes de carga e validação operacional. Não há certificação de prontidão para produção.
+---
 
-## Tecnologias
+## ✨ Visão geral
 
-- Java 25 e Spring Boot 3.5
-- Redis e scripts Lua
-- Maven, JUnit e Mockito
-- Testcontainers para testes de integração
-- Docker e Docker Compose
-- GitHub Actions, CodeQL, Dependabot e JaCoCo
-- Contrato OpenAPI, recursos iniciais de Prometheus/Grafana e benchmark k6
+O **LimitCore** é uma API REST open source para **rate limiting distribuído**. Ela permite que sistemas consultem se uma requisição pode ser aceita conforme uma quota definida no servidor.
 
-## Algoritmos disponíveis
+O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis.
 
-| Algoritmo | Configuração | Funcionamento |
-| --- | --- | --- |
-| Janela fixa | `fixed-window` | Contador com prazo de expiração no Redis |
-| Balde de tokens | `token-bucket` | Reposição gradual de tokens usando o relógio do Redis |
-| Janela deslizante | `sliding-window` | Registra solicitações aceitas em um conjunto ordenado |
+| 🔐 Segurança inicial | ⚙️ Consistência | 🧪 Qualidade | 📈 Observabilidade |
+| :---: | :---: | :---: | :---: |
+| API Key e quotas no servidor | Scripts Lua atômicos | JUnit, Testcontainers e CI | OpenAPI, Prometheus e Grafana |
+| Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
-Veja [detalhes dos algoritmos](docs/algorithms.md).
+> [!IMPORTANT]
+> **Projeto em evolução.** Há testes automatizados e verificações de segurança, mas ainda são necessárias validações de carga, *failover*, isolamento multitenant e operação antes de declarar prontidão para produção.
 
-## Pré-requisitos
+## 🏗️ Arquitetura
 
-Java 25, Maven 3.9 ou superior e Docker com Docker Compose.
+```mermaid
+flowchart LR
+    A["📱 Aplicação cliente"] -->|"POST /v1/limits/check"| B["☕ API LimitCore"]
+    B --> C{"🔐 API Key válida?"}
+    C -->|"Não"| D["401 Não autorizado"]
+    C -->|"Sim"| E["⚙️ Política de quota"]
+    E --> F[("🔴 Redis + Lua")]
+    F --> G{"Limite disponível?"}
+    G -->|"Sim"| H["allowed: true"]
+    G -->|"Não"| I["allowed: false"]
+    classDef api fill:#1e3a8a,color:#fff,stroke:#60a5fa
+    classDef redis fill:#991b1b,color:#fff,stroke:#f87171
+    classDef result fill:#065f46,color:#fff,stroke:#34d399
+    class B,E api
+    class F redis
+    class H result
+```
 
-## Como executar
+<sub>As respostas de decisão utilizam HTTP 200 com o campo `allowed`. O cliente é responsável por aplicar o bloqueio; o LimitCore não funciona como proxy.</sub>
 
-Clone o repositório e entre na pasta:
+## 🧠 Algoritmos
+
+| Algoritmo | Identificador | Como funciona | Característica |
+| --- | --- | --- | --- |
+| **Fixed Window** | `fixed-window` | Contador com expiração | Simples e econômico |
+| **Token Bucket** | `token-bucket` | Tokens repostos progressivamente | Permite rajadas controladas |
+| **Sliding Window** | `sliding-window` | Eventos em janela móvel | Controle mais preciso |
+
+Todos usam scripts Lua para manter a operação atômica em um primário Redis. [Entenda as diferenças →](docs/algorithms.md)
+
+## 🚀 Início rápido
+
+**Pré-requisitos:** Java 25, Maven 3.9+ e Docker Compose.
+
+**1. Clone o projeto**
 
 ```bash
 git clone https://github.com/emanuelleda/limitcore.git
 cd limitcore
 ```
 
-Inicie o Redis local:
+**2. Inicie o Redis**
 
 ```bash
 docker compose up -d
 ```
 
-Configure a chave de acesso e os limites:
+**3. Configure o ambiente**
 
 ```bash
 export LIMITCORE_API_KEY="$(openssl rand -hex 32)"
@@ -58,80 +91,118 @@ export LIMITCORE_CAPACITY=100
 export LIMITCORE_WINDOW_SECONDS=60
 ```
 
-Inicie a aplicação:
+**4. Execute a API**
 
 ```bash
 mvn spring-boot:run
 ```
 
-### Exemplo de requisição
+## 🔌 Experimente a API
+
+<details open>
+<summary><strong>POST /v1/limits/check — consultar uma decisão</strong></summary>
 
 ```bash
 curl -X POST http://localhost:8080/v1/limits/check \
-  -H "X-API-Key: $LIMITCORE_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $LIMITCORE_API_KEY" \
   -d '{"key":"cliente-123"}'
 ```
 
-Exemplo de resposta:
+**Exemplo de resposta autorizada**
 
 ```json
-{"allowed":true,"algorithm":"token-bucket"}
+{
+  "allowed": true,
+  "algorithm": "token-bucket"
+}
 ```
 
-**Importante:** quando a quota é atingida, a API responde HTTP 200 com `"allowed":false`. Cabe à aplicação consumidora aplicar o bloqueio. Chaves ausentes ou inválidas retornam HTTP 401.
+**Exemplo de resposta com limite atingido**
 
-## Variáveis de ambiente
+```json
+{
+  "allowed": false,
+  "algorithm": "token-bucket"
+}
+```
 
-| Variável | Valor padrão | Descrição |
-| --- | --- | --- |
-| `LIMITCORE_API_KEY` | Vazio | Credencial compartilhada; vazia, nenhuma requisição é autorizada |
-| `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo utilizado |
-| `LIMITCORE_CAPACITY` | `100` | Capacidade da quota |
-| `LIMITCORE_WINDOW_SECONDS` | `60` | Período em segundos |
-| `REDIS_HOST` | `localhost` | Endereço do Redis |
-| `REDIS_PORT` | `6379` | Porta do Redis |
+Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa retorna **HTTP 200**, portanto o consumidor deve verificar o campo `allowed`.
 
-As quotas são definidas pelo servidor, não pelo cliente.
+</details>
 
-## Testes e qualidade
+## 🧰 Tecnologias e ferramentas
+
+| Camada | Tecnologias |
+| --- | --- |
+| **Backend** | Java 25, Spring Boot 3.5 |
+| **Estado distribuído** | Redis, scripts Lua |
+| **Testes** | JUnit, Mockito, Testcontainers |
+| **Build e infraestrutura** | Maven, Docker, Docker Compose |
+| **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
+| **Qualidade** | JaCoCo, configuração SonarQube |
+| **Observabilidade** | OpenAPI, Prometheus, Grafana, k6 |
+
+## 🧪 Testes e integração contínua
 
 ```bash
 mvn verify
 ```
 
-O pipeline executa testes unitários e de integração com Redis por meio do Testcontainers. O JaCoCo produz relatórios de cobertura; o CodeQL verifica o código e o Dependabot acompanha dependências.
+O pipeline inclui **testes unitários**, **testes de integração com Redis** e um **cenário de concorrência** para janela fixa. Os workflows de CI e segurança ficam disponíveis na aba [Actions](https://github.com/emanuelleda/limitcore/actions).
 
-A configuração para SonarQube está presente, mas a análise em uma organização conectada depende de configuração externa.
+A configuração do SonarQube está preparada, mas uma análise conectada e seu *quality gate* ainda dependem de configuração externa.
 
-## Observabilidade e desempenho
+## ⚙️ Configuração
 
-Há uma configuração inicial de Prometheus, um dashboard JSON do Grafana e um script k6. O endpoint `/actuator/prometheus` **não é exposto por padrão**; habilite-o apenas em uma rede protegida. Os limites de desempenho do script k6 ainda não foram validados como objetivos de serviço.
+| Variável | Padrão | Finalidade |
+| --- | --- | --- |
+| `LIMITCORE_API_KEY` | Vazio | Credencial de acesso; vazia, rejeita todas as chamadas |
+| `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
+| `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
+| `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
+| `REDIS_HOST` | `localhost` | Servidor Redis |
+| `REDIS_PORT` | `6379` | Porta Redis |
 
-## Documentação
+> [!NOTE]
+> O endpoint de métricas Prometheus **não é exposto por padrão**. Habilite-o apenas em uma rede protegida, configurando `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus` e controlando o acesso administrativo.
 
-- [Arquitetura](docs/architecture.md)
-- [Algoritmos](docs/algorithms.md)
-- [Contrato OpenAPI](docs/openapi.yaml)
-- [Operação e incidentes](docs/operations.md)
-- [Qualidade e critérios de publicação](docs/quality.md)
-- [Decisão arquitetural: Redis Lua](docs/adr/0001-redis-lua.md)
-- [Política de segurança](SECURITY.md)
-- [Como contribuir](CONTRIBUTING.md)
+## 📚 Documentação
 
-## Próximos passos
+| Documento | Conteúdo |
+| --- | --- |
+| [🏗️ Arquitetura](docs/architecture.md) | Componentes, fluxo e garantias |
+| [🧠 Algoritmos](docs/algorithms.md) | Fixed Window, Token Bucket e Sliding Window |
+| [📘 Contrato OpenAPI](docs/openapi.yaml) | Endpoint, autenticação e respostas |
+| [📊 Operação](docs/operations.md) | Monitoramento, incidentes e recuperação |
+| [🧪 Qualidade](docs/quality.md) | Testes, segurança e critérios de publicação |
+| [📝 ADR Redis Lua](docs/adr/0001-redis-lua.md) | Decisões arquiteturais |
+| [🔒 Segurança](SECURITY.md) | Riscos, recomendações e divulgação responsável |
+| [🤝 Contribuição](CONTRIBUTING.md) | Como colaborar com o projeto |
 
-- [x] Três algoritmos com scripts Lua atômicos
-- [x] API Key compartilhada e quotas controladas pelo servidor
-- [x] Testes unitários, integração com Redis e teste de concorrência
-- [x] CI, CodeQL, Dependabot e cobertura JaCoCo
+## 🗺️ Evolução do projeto
+
+- [x] Três algoritmos de rate limiting distribuído
+- [x] Quotas definidas pelo servidor e autenticação inicial por API Key
+- [x] Testes unitários, integração e concorrência
+- [x] CI, CodeQL, Dependabot e JaCoCo
 - [x] Contrato OpenAPI e ferramentas iniciais de observabilidade
-- [ ] Autenticação e quotas isoladas por cliente/organização
-- [ ] Proteção completa contra excesso de chaves e consumo de memória
+- [ ] Autenticação multitenant e políticas por cliente
+- [ ] Proteção de cardinalidade e consumo de memória
 - [ ] Tracing distribuído e testes de failover
-- [ ] SonarQube conectado e benchmark validado
-- [ ] Revisão operacional e de segurança antes de produção
+- [ ] SonarQube conectado e benchmarks validados
+- [ ] Auditoria e revisão operacional para produção
 
-## Licença
+---
 
-Distribuído sob a [licença MIT](LICENSE).
+<div align="center">
+
+### 🤝 Contribuições são bem-vindas
+
+Encontrou um problema ou tem uma ideia? Abra uma [issue](https://github.com/emanuelleda/limitcore/issues) ou envie um pull request.
+
+Desenvolvido por **[Emanuel Lêda](https://github.com/emanuelleda)**
+
+Distribuído sob a **[Licença MIT](LICENSE)**.
+
+</div>
