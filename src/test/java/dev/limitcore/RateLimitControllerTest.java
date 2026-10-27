@@ -2,27 +2,39 @@ package dev.limitcore;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.http.ResponseEntity;
-import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 class RateLimitControllerTest {
-    @Test void allowsWhenRedisReturnsOne() {
+    private RateLimitController controller(StringRedisTemplate redis, String algorithm) {
+        return new RateLimitController(redis, "secret", 10, 60, algorithm);
+    }
+    @Test void allows() {
         var redis = mock(StringRedisTemplate.class);
         when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(1L);
-        var result = new RateLimitController(redis).check(new RateLimitController.CheckRequest("user-1", 10, 60));
-        assertTrue(result.getBody().allowed());
+        assertTrue(controller(redis,"fixed-window").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
     }
-    @Test void deniesWhenRedisReturnsZero() {
+    @Test void denies() {
         var redis = mock(StringRedisTemplate.class);
         when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(0L);
-        var result = new RateLimitController(redis).check(new RateLimitController.CheckRequest("user-1", 10, 60));
-        assertFalse(result.getBody().allowed());
+        assertFalse(controller(redis,"fixed-window").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
     }
-    @Test void failsWhenRedisReturnsNull() {
+    @Test void rejectsWrongKey() {
         var redis = mock(StringRedisTemplate.class);
-        assertThrows(IllegalStateException.class, () -> new RateLimitController(redis)
-            .check(new RateLimitController.CheckRequest("user-1", 10, 60)));
+        assertEquals(401, controller(redis,"fixed-window").check("wrong",new RateLimitController.CheckRequest("user-1")).getStatusCode().value());
+        verifyNoInteractions(redis);
+    }
+    @Test void acceptsTokenBucket() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class), any(String.class))).thenReturn(1L);
+        assertTrue(controller(redis,"token-bucket").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
+    }
+    @Test void acceptsSlidingWindow() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(1L);
+        assertTrue(controller(redis,"sliding-window").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
+    }
+    @Test void rejectsInvalidAlgorithm() {
+        assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
 }
