@@ -58,6 +58,7 @@ public class RateLimitController {
     private final String configuredApiKey;
     private final Map<String,String> tenantKeys;
     private final int capacity;
+    private final Map<String,Integer> tenantCapacities;
     private final int windowSeconds;
     private final String algorithm;
 
@@ -67,10 +68,12 @@ public class RateLimitController {
             @Value("${limitcore.capacity:100}") int capacity,
             @Value("${limitcore.window-seconds:60}") int windowSeconds,
             @Value("${limitcore.algorithm:fixed-window}") String algorithm,
-            @Value("${limitcore.tenants:}") String tenants) {
+            @Value("${limitcore.tenants:}") String tenants,
+            @Value("${limitcore.tenant-capacities:}") String tenantCapacityConfig) {
         this.redis = redis;
         this.configuredApiKey = apiKey;
         this.tenantKeys = parseTenants(tenants);
+        this.tenantCapacities = parseCapacities(tenantCapacityConfig, this.tenantKeys);
         if (capacity < 1 || capacity > 1000000 || windowSeconds < 1 || windowSeconds > 86400)
             throw new IllegalArgumentException("Invalid server-side quota configuration");
         if (!List.of("fixed-window", "token-bucket", "sliding-window").contains(algorithm))
@@ -84,7 +87,12 @@ public class RateLimitController {
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, "");
+        this(redis, apiKey, capacity, windowSeconds, algorithm, "", "");
+    }
+
+    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
+            int windowSeconds, String algorithm, String tenants) {
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "");
     }
 
     private static Map<String,String> parseTenants(String configuration) {
@@ -97,6 +105,22 @@ public class RateLimitController {
                 throw new IllegalArgumentException("Invalid tenant credentials configuration");
         }
         return Map.copyOf(parsed);
+    }
+
+    private static Map<String,Integer> parseCapacities(String configuration, Map<String,String> tenants) {
+        Map<String,Integer> capacities = new HashMap<>();
+        if (configuration == null || configuration.isBlank()) return Map.of();
+        for (String entry : configuration.split(",")) {
+            String[] parts = entry.split("=", 2);
+            if (parts.length != 2 || !tenants.containsKey(parts[0]))
+                throw new IllegalArgumentException("Unknown tenant in capacity configuration");
+            int value;
+            try { value = Integer.parseInt(parts[1]); }
+            catch (NumberFormatException e) { throw new IllegalArgumentException("Invalid tenant capacity", e); }
+            if (value < 1 || value > 10000 || capacities.putIfAbsent(parts[0], value) != null)
+                throw new IllegalArgumentException("Invalid or duplicate tenant capacity");
+        }
+        return Map.copyOf(capacities);
     }
 
     private String authenticate(String apiKey) {
@@ -126,15 +150,16 @@ public class RateLimitController {
         String tenant = authenticate(apiKey);
         if (tenant == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
+        int quota = tenantCapacities.getOrDefault(tenant, capacity);
         long windowMillis = windowSeconds * 1000L;
         String key = "limitcore:{" + HexFormat.of().formatHex(
             sha256((tenant + ":" + request.key()).getBytes(StandardCharsets.UTF_8))) + "}";
         Long result = switch (algorithm) {
             case "token-bucket" -> redis.execute(TOKEN_BUCKET, List.of(key),
-                String.valueOf(capacity), String.valueOf((double) capacity / windowSeconds),
+                String.valueOf(quota), String.valueOf((double) quota / windowSeconds),
                 String.valueOf(windowMillis));
             case "sliding-window" -> redis.execute(SLIDING_WINDOW, List.of(key, key + ":seq"),
-                String.valueOf(windowMillis), String.valueOf(capacity));
+                String.valueOf(windowMillis), String.valueOf(quota));
             default -> redis.execute(FIXED_WINDOW, List.of(key),
                 String.valueOf(windowMillis), String.valueOf(capacity));
         };
