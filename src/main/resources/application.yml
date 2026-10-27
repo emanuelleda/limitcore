@@ -5,6 +5,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
 limitcore:
   api-key: ${LIMITCORE_API_KEY:}
   tenants: ${LIMITCORE_TENANTS:}
