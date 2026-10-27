@@ -34,6 +34,9 @@ class RateLimitControllerTest {
         when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(1L);
         assertTrue(controller(redis,"sliding-window").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
     }
+    @Test void rejectsOversizedSlidingWindow() {
+        assertThrows(IllegalArgumentException.class, () -> new RateLimitController(mock(StringRedisTemplate.class), "secret", 10001, 60, "sliding-window"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
