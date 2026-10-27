@@ -1,28 +1,42 @@
-# Operations and incident response
+# Operação, monitoramento e resposta a incidentes
 
-## Local monitoring
+## Ambiente local
 
-Start the API on the host, then run Prometheus from the optional monitoring Compose file. The metrics endpoint is /actuator/prometheus. **Do not expose management endpoints to untrusted networks**; Spring Boot recommends securing them or keeping them behind a firewall.
+Inicie o Redis com `docker compose up -d` e execute a aplicação com `mvn spring-boot:run`.
 
-## Redis outage
+O repositório inclui uma configuração opcional do Prometheus em `monitoring/compose.yaml`. O endpoint `/actuator/prometheus` fica **desabilitado para exposição web por padrão**. Habilite-o somente em rede confiável, por exemplo com `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus`, e proteja o acesso administrativo.
 
-LimitCore currently fails closed in the sense that it does not grant a positive decision when Redis is unreachable. The endpoint responds with a server error; callers must treat such errors as a denied/unknown decision and choose their own safe handling.
+## Indisponibilidade do Redis
 
-## Failover
+O LimitCore não concede uma decisão positiva quando não consegue consultar o Redis. A API pode retornar erro HTTP 5xx. Os consumidores precisam tratar esse resultado como falha ou decisão desconhecida, seguindo sua política de segurança.
 
-Lua is atomic on one primary but Redis replication may lose recent writes during failover. Test failover behavior in your own environment before relying on strict limits.
+## Troca de primário e recuperação
 
-## Security
+Scripts Lua são atômicos no primário em que são executados. A replicação assíncrona pode perder atualizações recentes durante um *failover*. Avalie esse risco antes de utilizar quotas estritas.
 
-Set LIMITCORE_API_KEY from a secret manager, use HTTPS at an ingress, restrict access to Redis and the management endpoints, and rotate keys during a maintenance window. The prototype uses one global API key and does not yet support rotation without downtime.
+## Segurança operacional
 
-## Runbooks
+- Armazene `LIMITCORE_API_KEY` em um gerenciador de segredos.
+- Utilize HTTPS na entrada da aplicação.
+- Restrinja o acesso ao Redis e aos endpoints administrativos.
+- Planeje a rotação de credenciais; o protótipo ainda utiliza uma chave compartilhada.
+- Não registre segredos em logs.
 
-- If 5xx spikes: check Redis connectivity, health and logs; do not bypass limits blindly.
-- If 401 spikes: check client key distribution and key rotation.
-- If Redis memory increases: inspect active-key cardinality and sliding-window storage.
-- If response latency increases: measure Redis RTT and check for CPU saturation.
+## Procedimentos de diagnóstico
 
-## Release checklist
+| Sintoma | Verificações recomendadas |
+| --- | --- |
+| Aumento de erros 5xx | Conectividade, saúde e latência do Redis |
+| Aumento de respostas 401 | Distribuição e validade da chave de API |
+| Crescimento de memória | Cardinalidade de chaves e uso da janela deslizante |
+| Lentidão | Latência de rede, CPU, Redis e saturação da aplicação |
 
-CI green; security workflow green; dependency audit reviewed; load test performed; failover exercise documented; credentials managed; metrics access restricted; rollback plan rehearsed.
+## Checklist antes de produção
+
+- [ ] CI e CodeQL aprovados no commit de publicação
+- [ ] Dependências e alertas de segurança revisados
+- [ ] Testes de carga executados em ambiente representativo
+- [ ] Exercício de *failover* documentado
+- [ ] Segredos e redes protegidos
+- [ ] Acesso às métricas restrito
+- [ ] Procedimento de rollback validado
