@@ -1,17 +1,19 @@
-# Architecture and guarantees
+# Architecture
 
-Client -> Spring Boot REST -> Redis Lua script.
+Clients -> authenticated HTTP decision endpoint -> Spring Boot -> atomic Redis Lua script.
 
-The script executes atomically on a single Redis primary. It increments a per-key counter and sets expiry on first access. This is a fixed-duration window anchored to first request, not a calendar-aligned window. Requests after the limit return allowed=false with HTTP 200.
+Multiple instances share state through the same Redis primary. Algorithm selected at startup with LIMITCORE_ALGORITHM.
 
-## Limitations
+- Fixed window: counter + TTL.
+- Token bucket: fractional refill from Redis server time.
+- Sliding window: sorted-set log, unique members via per-key counter, bounded by accepted requests per window.
 
-- Redis failover can lose acknowledged writes depending on replication and persistence.
-- A client currently chooses its quota; the service is not safe for untrusted callers.
-- No tenant-level authorization or key cardinality limit.
-- No availability guarantees during Redis outages.
-- A Lua operation is atomic on one Redis server, not globally across independent regions.
+## Consistency and failure behavior
 
-## Production milestones
+Lua executes atomically on one Redis primary. Redis replication and failover do not guarantee zero lost increments. No cross-region global consistency guarantee is made. Redis outages produce errors rather than allowing requests. This is not a substitute for API gateway authentication or transport security.
 
-Implement server-managed policies, auth, token bucket and sliding window, Testcontainers-based concurrency tests, metrics, tracing, resource bounds, resilience and load testing before claiming production readiness.
+## Operational caveats
+
+The API returns decision JSON, not HTTP 429. The shared API key is a prototype credential, not a tenant identity. Sliding-window storage scales with accepted requests and number of distinct keys. A Redis Cluster deployment needs compatible hash slots for the sorted-set and sequence keys.
+
+See [algorithms](algorithms.md) and [security](../SECURITY.md).
