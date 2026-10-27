@@ -141,7 +141,7 @@ Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa 
 | **Build e infraestrutura** | Maven, Docker, Docker Compose |
 | **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
 | **Qualidade** | JaCoCo, configuração SonarQube |
-| **Observabilidade** | OpenAPI, Prometheus, Grafana, k6 |
+| **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer Tracing, k6 |
 
 ## 🧪 Testes e integração contínua
 
@@ -193,7 +193,8 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 - [x] Capacidades individuais por tenant, com período global compartilhado
 - [ ] Rotação e revogação dinâmica de credenciais e períodos individuais por tenant
 - [ ] Proteção de cardinalidade e consumo de memória
-- [ ] Tracing distribuído e testes de failover
+- [x] Ponte Micrometer Tracing com OpenTelemetry
+- [ ] Exportação de traces, correlação ponta a ponta e testes de failover
 - [ ] SonarQube conectado e benchmarks validados
 - [ ] Auditoria e revisão operacional para produção
 
