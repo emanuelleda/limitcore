@@ -19,7 +19,7 @@ paths:
               $ref: '#/components/schemas/CheckRequest'
       responses:
         '200':
-          description: Decisão avaliada
+          description: Decisão avaliada; allowed=false indica quota esgotada ou máximo de identificadores ativos atingido
           content:
             application/json:
               schema:
@@ -29,7 +29,7 @@ paths:
         '401':
           description: Chave de API ausente ou inválida
         '500':
-          description: Falha interna
+          description: Falha interna, incluindo indisponibilidade do Redis
 components:
   securitySchemes:
     ApiKey:
