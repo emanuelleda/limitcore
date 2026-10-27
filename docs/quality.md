@@ -14,6 +14,10 @@ O workflow CodeQL realiza análise estática. A revisão de dependências é exe
 
 O arquivo `sonar-project.properties` define caminhos básicos de análise. Para utilizar SonarQube ou SonarCloud, ainda é necessário configurar a organização, a autenticação e a integração com o repositório. Não publique tokens. **Uma aprovação de quality gate do SonarQube ainda não foi demonstrada.**
 
+## Publicação de versões
+
+O workflow `Release` é acionado por tags no formato `v*`. Ele executa `mvn verify`, gera um inventário de componentes de software (SBOM CycloneDX) e tenta publicar o JAR e os arquivos SBOM em uma GitHub Release. A execução de uma publicação real ainda precisa ser verificada antes de considerar a automação validada.
+
 ## Critérios para produção
 
 1. CI e análise de segurança aprovados no commit da versão.
