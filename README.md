@@ -23,7 +23,7 @@
 
 O **LimitCore** é uma API REST open source para **rate limiting distribuído**. Ela permite que sistemas consultem se uma requisição pode ser aceita conforme uma quota definida no servidor.
 
-O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis.
+O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis. A configuração opcional `LIMITCORE_TENANTS` permite autenticação por tenant e isolamento dos contadores; ainda não há quotas distintas por tenant.
 
 | 🔐 Segurança inicial | ⚙️ Consistência | 🧪 Qualidade | 📈 Observabilidade |
 | :---: | :---: | :---: | :---: |
@@ -157,7 +157,8 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 
 | Variável | Padrão | Finalidade |
 | --- | --- | --- |
-| `LIMITCORE_API_KEY` | Vazio | Credencial de acesso; vazia, rejeita todas as chamadas |
+| `LIMITCORE_API_KEY` | Vazio | Credencial legada compartilhada (tenant `default`) |
+| `LIMITCORE_TENANTS` | Vazio | Credenciais opcionais por tenant no formato `tenant=segredo,tenant2=segredo2` |
 | `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
 | `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
 | `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
@@ -187,7 +188,8 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 - [x] Testes unitários, integração e concorrência
 - [x] CI, CodeQL, Dependabot e JaCoCo
 - [x] Contrato OpenAPI e ferramentas iniciais de observabilidade
-- [ ] Autenticação multitenant e políticas por cliente
+- [x] Autenticação inicial por tenant com isolamento das chaves no Redis
+- [ ] Políticas e quotas individuais por cliente, rotação e revogação dinâmica
 - [ ] Proteção de cardinalidade e consumo de memória
 - [ ] Tracing distribuído e testes de failover
 - [ ] SonarQube conectado e benchmarks validados
