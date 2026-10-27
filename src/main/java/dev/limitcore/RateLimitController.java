@@ -8,6 +8,8 @@ import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -72,7 +74,7 @@ public class RateLimitController {
         """, Long.class);
     private final StringRedisTemplate redis;
     private final String configuredApiKey;
-    private final Map<String,String> tenantKeys;
+    private final Map<String,List<String>> tenantKeys;
     private final int capacity;
     private final int maxActiveKeys;
     private final Map<String,Integer> tenantCapacities;
@@ -91,6 +93,8 @@ public class RateLimitController {
         this.redis = redis;
         this.configuredApiKey = apiKey;
         this.tenantKeys = parseTenants(tenants);
+        if (!apiKey.isBlank() && tenantKeys.values().stream().flatMap(List::stream).anyMatch(apiKey::equals))
+            throw new IllegalArgumentException("Legacy and tenant credentials must differ");
         this.tenantCapacities = parseCapacities(tenantCapacityConfig, this.tenantKeys);
         if (capacity < 1 || capacity > 1000000 || windowSeconds < 1 || windowSeconds > 86400)
             throw new IllegalArgumentException("Invalid server-side quota configuration");
@@ -116,21 +120,25 @@ public class RateLimitController {
         this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000);
     }
 
-    private static Map<String,String> parseTenants(String configuration) {
-        Map<String,String> parsed = new HashMap<>();
+    private static Map<String,List<String>> parseTenants(String configuration) {
+        Map<String,List<String>> parsed = new HashMap<>();
+        Set<String> credentials = new HashSet<>();
         if (configuration == null || configuration.isBlank()) return Map.of();
         for (String entry : configuration.split(",")) {
             String[] parts = entry.split("=", 2);
             if (parts.length != 2 || !parts[0].matches("[A-Za-z0-9_-]{1,64}")
-                    || parts[1].length() < 16 || parsed.putIfAbsent(parts[0], parts[1]) != null)
+                    || parsed.containsKey(parts[0]))
                 throw new IllegalArgumentException("Invalid tenant credentials configuration");
+            String[] secrets = parts[1].split("\\|", -1);
+            if (secrets.length > 2) throw new IllegalArgumentException("At most two credentials per tenant");
+            for (String secret : secrets) {
+                if (secret.length() < 16 || secret.length() > 256 || !credentials.add(secret))
+                    throw new IllegalArgumentException("Invalid or duplicate tenant credential");
+            }
+            parsed.put(parts[0], List.of(secrets));
+            if (parsed.size() > 1000) throw new IllegalArgumentException("Too many tenants");
         }
         return Map.copyOf(parsed);
-    }
-
-    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
-            int windowSeconds, String algorithm, String tenants, String tenantCapacities) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000);
     }
 
     private static Map<String,Integer> parseCapacities(String configuration, Map<String,String> tenants) {
@@ -153,8 +161,10 @@ public class RateLimitController {
         if (apiKey == null || apiKey.isBlank()) return null;
         byte[] candidate = sha256(apiKey.getBytes(StandardCharsets.UTF_8));
         for (var entry : tenantKeys.entrySet()) {
-            if (MessageDigest.isEqual(candidate, sha256(entry.getValue().getBytes(StandardCharsets.UTF_8))))
-                return entry.getKey();
+            for (String secret : entry.getValue()) {
+                if (MessageDigest.isEqual(candidate, sha256(secret.getBytes(StandardCharsets.UTF_8))))
+                    return entry.getKey();
+            }
         }
         if (!configuredApiKey.isBlank() && MessageDigest.isEqual(candidate,
                 sha256(configuredApiKey.getBytes(StandardCharsets.UTF_8)))) return "default";
