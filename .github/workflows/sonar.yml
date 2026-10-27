@@ -26,7 +26,8 @@ jobs:
           cache: maven
       - name: Aviso se Sonar não estiver conectado
         if: env.SONAR_TOKEN == '' || env.SONAR_PROJECT_KEY == ''
-        run: echo "SonarQube não foi executado: configure SONAR_TOKEN (secret) e SONAR_PROJECT_KEY (variable)." >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "SonarQube não executado; configure SONAR_TOKEN e SONAR_PROJECT_KEY." >> "$GITHUB_STEP_SUMMARY"
       - name: Testes e cobertura
         if: env.SONAR_TOKEN != '' && env.SONAR_PROJECT_KEY != ''
         run: mvn -B -ntp verify
