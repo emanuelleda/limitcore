@@ -141,7 +141,7 @@ public class RateLimitController {
         return Map.copyOf(parsed);
     }
 
-    private static Map<String,Integer> parseCapacities(String configuration, Map<String,String> tenants) {
+    private static Map<String,Integer> parseCapacities(String configuration, Map<String,List<String>> tenants) {
         Map<String,Integer> capacities = new HashMap<>();
         if (configuration == null || configuration.isBlank()) return Map.of();
         for (String entry : configuration.split(",")) {
