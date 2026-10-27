@@ -2,13 +2,13 @@ openapi: 3.0.3
 info:
   title: LimitCore API
   version: 0.1.0
-  description: Distributed rate-limit decision API. The API returns a decision in JSON; a denied decision does not use HTTP 429.
+  description: API de decisão para controle distribuído de requisições. A resposta informa a decisão em JSON; uma decisão negativa não utiliza HTTP 429.
 servers:
   - url: http://localhost:8080
 paths:
   /v1/limits/check:
     post:
-      summary: Evaluate a rate-limit decision
+      summary: Avaliar uma decisão de limitação de requisições
       security:
         - ApiKey: []
       requestBody:
@@ -19,17 +19,17 @@ paths:
               $ref: '#/components/schemas/CheckRequest'
       responses:
         '200':
-          description: Decision evaluated
+          description: Decisão avaliada
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckResponse'
         '400':
-          description: Invalid request
+          description: Requisição inválida
         '401':
-          description: Invalid or missing API key
+          description: Chave de API ausente ou inválida
         '500':
-          description: Internal failure
+          description: Falha interna
 components:
   securitySchemes:
     ApiKey:
