@@ -1,19 +1,19 @@
 ---
-name: Bug report
-about: Report a reproducible issue
+name: Relato de erro
+about: Informe um problema reproduzível no LimitCore
 title: "bug: "
 labels: bug
 assignees: []
 ---
 
-## Summary
+## Resumo do problema
 
-## Reproduction steps
+## Passos para reproduzir
 
-## Expected behavior
+## Comportamento esperado
 
-## Actual behavior
+## Comportamento observado
 
-## Java, Redis, and LimitCore versions
+## Versões do Java, Redis e LimitCore
 
-## Logs (redact secrets)
+## Logs relevantes (remova credenciais e dados sensíveis)
