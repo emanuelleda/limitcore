@@ -1,0 +1,22 @@
+name: API Smoke and Redis Recovery
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Build API
+        run: mvn -B -ntp package -DskipTests
+      - name: k6 API smoke and Redis outage/restart exercise
+        run: bash scripts/smoke-ci.sh
