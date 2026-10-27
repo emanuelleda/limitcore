@@ -1,10 +1,10 @@
-## Summary
+## Resumo da alteração
 
-## Testing
-- [ ] mvn verify
-- [ ] Integration tests with Redis
-- [ ] Documentation updated
+## Testes realizados
+- [ ] `mvn verify`
+- [ ] Testes de integração com Redis, quando aplicável
+- [ ] Documentação atualizada
 
-## Security and compatibility impact
+## Impactos em segurança e compatibilidade
 
-## Rollback plan
+## Plano de reversão (rollback)
