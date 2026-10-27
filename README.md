@@ -1,76 +1,137 @@
 # LimitCore
 
 [![CI](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml)
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+[![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
 
-Distributed rate-limiting decision API built with Java 25, Spring Boot and Redis.
+**API de controle distribuído de requisições (rate limiting)** desenvolvida com Java 25, Spring Boot e Redis.
 
-> **Pre-release.** Not yet security-audited or validated for production. New CI runs must pass before the latest changes are considered verified.
+O LimitCore permite que aplicações consultem se uma solicitação deve ser autorizada conforme uma quota configurada no servidor. Instâncias diferentes da API compartilham o estado no Redis, usando scripts Lua para operações atômicas.
 
-## Requirements
+> **Estado:** projeto open source em evolução. Os testes automatizados não substituem auditoria de segurança, testes de carga e validação operacional. Não há certificação de prontidão para produção.
 
-Java 25, Maven 3.9+, Docker Compose.
+## Tecnologias
 
-## Quick start
+- Java 25 e Spring Boot 3.5
+- Redis e scripts Lua
+- Maven, JUnit e Mockito
+- Testcontainers para testes de integração
+- Docker e Docker Compose
+- GitHub Actions, CodeQL, Dependabot e JaCoCo
+- Contrato OpenAPI, recursos iniciais de Prometheus/Grafana e benchmark k6
+
+## Algoritmos disponíveis
+
+| Algoritmo | Configuração | Funcionamento |
+| --- | --- | --- |
+| Janela fixa | `fixed-window` | Contador com prazo de expiração no Redis |
+| Balde de tokens | `token-bucket` | Reposição gradual de tokens usando o relógio do Redis |
+| Janela deslizante | `sliding-window` | Registra solicitações aceitas em um conjunto ordenado |
+
+Veja [detalhes dos algoritmos](docs/algorithms.md).
+
+## Pré-requisitos
+
+Java 25, Maven 3.9 ou superior e Docker com Docker Compose.
+
+## Como executar
+
+Clone o repositório e entre na pasta:
+
+```bash
+git clone https://github.com/emanuelleda/limitcore.git
+cd limitcore
+```
+
+Inicie o Redis local:
 
 ```bash
 docker compose up -d
+```
+
+Configure a chave de acesso e os limites:
+
+```bash
 export LIMITCORE_API_KEY="$(openssl rand -hex 32)"
-export LIMITCORE_ALGORITHM=token-bucket # fixed-window | token-bucket | sliding-window
+export LIMITCORE_ALGORITHM=token-bucket
 export LIMITCORE_CAPACITY=100
 export LIMITCORE_WINDOW_SECONDS=60
+```
+
+Inicie a aplicação:
+
+```bash
 mvn spring-boot:run
 ```
+
+### Exemplo de requisição
 
 ```bash
 curl -X POST http://localhost:8080/v1/limits/check \
   -H "X-API-Key: $LIMITCORE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"key":"customer-123"}'
+  -d '{"key":"cliente-123"}'
 ```
 
-Response: `{"allowed":true,"algorithm":"token-bucket"}`. Denied decisions return `allowed:false` with HTTP 200; consumers must inspect the response. Invalid/missing API keys return HTTP 401.
+Exemplo de resposta:
 
-## Configuration
+```json
+{"allowed":true,"algorithm":"token-bucket"}
+```
 
-| Environment variable | Default | Purpose |
+**Importante:** quando a quota é atingida, a API responde HTTP 200 com `"allowed":false`. Cabe à aplicação consumidora aplicar o bloqueio. Chaves ausentes ou inválidas retornam HTTP 401.
+
+## Variáveis de ambiente
+
+| Variável | Valor padrão | Descrição |
 | --- | --- | --- |
-| LIMITCORE_API_KEY | empty (reject all) | Shared API credential |
-| LIMITCORE_ALGORITHM | fixed-window | Algorithm |
-| LIMITCORE_CAPACITY | 100 | Requests/tokens |
-| LIMITCORE_WINDOW_SECONDS | 60 | Window/refill period |
-| REDIS_HOST | localhost | Redis hostname |
-| REDIS_PORT | 6379 | Redis port |
+| `LIMITCORE_API_KEY` | Vazio | Credencial compartilhada; vazia, nenhuma requisição é autorizada |
+| `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo utilizado |
+| `LIMITCORE_CAPACITY` | `100` | Capacidade da quota |
+| `LIMITCORE_WINDOW_SECONDS` | `60` | Período em segundos |
+| `REDIS_HOST` | `localhost` | Endereço do Redis |
+| `REDIS_PORT` | `6379` | Porta do Redis |
 
-## Tests and quality
+As quotas são definidas pelo servidor, não pelo cliente.
 
-Run `mvn verify` for JUnit tests and JaCoCo report. GitHub Actions runs the Maven verification pipeline; Dependabot checks dependencies weekly. Redis Testcontainers integration tests now cover fixed-window concurrency and basic token-bucket/sliding-window decisions. CI runs them on GitHub-hosted Docker runners. SonarQube cloud analysis and distributed tracing are still pending.
+## Testes e qualidade
 
-## Architecture
+```bash
+mvn verify
+```
 
-See [algorithms](docs/algorithms.md), [architecture](docs/architecture.md), [security](SECURITY.md), [contributing](CONTRIBUTING.md).
+O pipeline executa testes unitários e de integração com Redis por meio do Testcontainers. O JaCoCo produz relatórios de cobertura; o CodeQL verifica o código e o Dependabot acompanha dependências.
 
-## Roadmap
+A configuração para SonarQube está presente, mas a análise em uma organização conectada depende de configuração externa.
 
-- [x] Atomic Redis-backed fixed-window, token-bucket and sliding-window decisions
-- [x] Shared API key and server-owned quotas
-- [x] JUnit mock tests, CI, JaCoCo, Dependabot
-- [x] Docker Compose, container image and Prometheus registry dependency
-- [x] Redis Testcontainers integration and fixed-window concurrency tests
-- [ ] Tenant-aware authentication, policies and quotas
-- [x] OpenAPI YAML, initial Grafana dashboard and k6 benchmark scripts\n- [ ] Distributed tracing and multi-tenant authorization
-- [x] CodeQL workflow, dependency review and SonarQube project configuration\n- [ ] Connected SonarQube analysis, release automation and verified benchmarks
-- [ ] Failover testing, bounded memory and operational readiness review
+## Observabilidade e desempenho
 
-Licensed under MIT.
+Há uma configuração inicial de Prometheus, um dashboard JSON do Grafana e um script k6. O endpoint `/actuator/prometheus` **não é exposto por padrão**; habilite-o apenas em uma rede protegida. Os limites de desempenho do script k6 ainda não foram validados como objetivos de serviço.
 
-## Additional resources
+## Documentação
 
-- [OpenAPI contract](docs/openapi.yaml)
-- [Operations and incident response](docs/operations.md)
-- [Quality gates](docs/quality.md)
-- [Architecture decision record](docs/adr/0001-redis-lua.md)
-- [Grafana dashboard JSON](monitoring/grafana/dashboards/limitcore.json)
-- [k6 benchmark](benchmarks/k6.js)
+- [Arquitetura](docs/architecture.md)
+- [Algoritmos](docs/algorithms.md)
+- [Contrato OpenAPI](docs/openapi.yaml)
+- [Operação e incidentes](docs/operations.md)
+- [Qualidade e critérios de publicação](docs/quality.md)
+- [Decisão arquitetural: Redis Lua](docs/adr/0001-redis-lua.md)
+- [Política de segurança](SECURITY.md)
+- [Como contribuir](CONTRIBUTING.md)
 
-Run Prometheus locally with `docker compose -f monitoring/compose.yaml up -d` after starting the API on your host. Prometheus is **not exposed by default**. Enable it only on a trusted network by setting `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus` and securing access to the actuator endpoints. For a load test install k6, set `LIMITCORE_API_KEY`, and run `k6 run benchmarks/k6.js`. Benchmark thresholds are examples, not verified SLOs.
+## Próximos passos
+
+- [x] Três algoritmos com scripts Lua atômicos
+- [x] API Key compartilhada e quotas controladas pelo servidor
+- [x] Testes unitários, integração com Redis e teste de concorrência
+- [x] CI, CodeQL, Dependabot e cobertura JaCoCo
+- [x] Contrato OpenAPI e ferramentas iniciais de observabilidade
+- [ ] Autenticação e quotas isoladas por cliente/organização
+- [ ] Proteção completa contra excesso de chaves e consumo de memória
+- [ ] Tracing distribuído e testes de failover
+- [ ] SonarQube conectado e benchmark validado
+- [ ] Revisão operacional e de segurança antes de produção
+
+## Licença
+
+Distribuído sob a [licença MIT](LICENSE).
