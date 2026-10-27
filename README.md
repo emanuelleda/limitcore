@@ -31,7 +31,7 @@ O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** g
 | Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
 > [!IMPORTANT]
-> **Projeto em evolução.** Há testes automatizados e verificações de segurança, mas ainda são necessárias validações de carga, *failover*, isolamento multitenant e operação antes de declarar prontidão para produção.
+> **Projeto em evolução.** Há testes automatizados e verificações de segurança, mas ainda são necessárias validações representativas de carga, *failover* real, segurança e operação antes de declarar prontidão para produção.
 
 ## 🏗️ Arquitetura
 
@@ -63,7 +63,17 @@ flowchart LR
 | **Token Bucket** | `token-bucket` | Tokens repostos progressivamente | Permite rajadas controladas |
 | **Sliding Window** | `sliding-window` | Eventos em janela móvel | Controle mais preciso |
 
-Todos usam scripts Lua para manter a operação atômica em um primário Redis. A janela deslizante aceita capacidade máxima de 10.000 eventos por chave, como proteção inicial de memória. [Entenda as diferenças →](docs/algorithms.md)
+Todos usam scripts Lua para manter a operação atômica em um primário Redis. A janela deslizante aceita capacidade máxima de 10.000 eventos por chave; o registro atômico de chaves ativas impõe um limite adicional por tenant. [Entenda as diferenças →](docs/algorithms.md)
+
+## 🛡️ Proteções do Redis
+
+- **Limite de identificadores ativos:** por padrão, até `1.000` chaves lógicas ativas por tenant (`LIMITCORE_MAX_ACTIVE_KEYS`). A admissão e a operação da quota ocorrem no mesmo script Lua, sem corrida entre instâncias.
+- **Expiração automática:** registros deixam de ocupar o limite depois da janela configurada. Quando o limite de identificadores é atingido, a API retorna `allowed: false` (não é uma falha HTTP).
+- **Compatibilidade de cluster:** o estado de cada tenant usa uma *hash tag* comum para scripts multichave. O custo é concentrar a carga daquele tenant em um único slot.
+- **Rotação gradual:** `LIMITCORE_TENANTS="alpha=segredoAntigo|segredoNovo"` aceita temporariamente duas credenciais. Retire a antiga e reinicie as instâncias após a migração. As credenciais precisam ter pelo menos 16 caracteres e não podem ser reutilizadas entre tenants.
+
+> [!WARNING]
+> **Migração do formato Redis:** esta implementação altera o padrão das chaves. Ao migrar da versão anterior, quotas em andamento são reiniciadas; programe a implantação para evitar decisões inesperadas durante a troca.
 
 ## 🚀 Início rápido
 
@@ -159,7 +169,12 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 | --- | --- | --- |
 | `LIMITCORE_API_KEY` | Vazio | Credencial legada compartilhada (tenant `default`) |
 | `LIMITCORE_TENANTS` | Vazio | Credenciais opcionais por tenant no formato `tenant=segredo,tenant2=segredo2` |
-| `LIMITCORE_TENANT_CAPACITIES` | Vazio | Quotas opcionais por tenant: `tenant=20,tenant2=100` (mesmo período global) |
+| `LIMITCORE_TENANT_CAPACITIES` | Vazio | Capacidades opcionais por tenant: `tenant=20,tenant2=100` (mesmo período global) |
+| `LIMITCORE_MAX_ACTIVE_KEYS` | `1000` | Máximo de identificadores ativos por tenant (1–100.000) |
+| `REDIS_CONNECT_TIMEOUT` | `2s` | Tempo limite de conexão com Redis |
+| `REDIS_COMMAND_TIMEOUT` | `2s` | Tempo limite das operações Redis |
+| `LIMITCORE_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Coletor de traces OTLP |
+| `LIMITCORE_TRACING_SAMPLE_RATE` | `0.1` | Probabilidade de amostragem de traces |
 | `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
 | `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
 | `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
@@ -168,6 +183,16 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 
 > [!NOTE]
 > O endpoint de métricas Prometheus **não é exposto por padrão**. Habilite-o apenas em uma rede protegida, configurando `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus` e controlando o acesso administrativo.
+
+## 🔭 Telemetria e teste de recuperação
+
+Para iniciar um coletor Jaeger local e visualizar traces em http://localhost:16686:
+
+```bash
+docker compose -f monitoring/compose.yaml up -d jaeger
+```
+
+A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. Esse teste é um exercício de **parada/reinício**, não uma certificação de *failover* Sentinel/Cluster ou de capacidade produtiva.
 
 ## 📚 Documentação
 
@@ -191,11 +216,16 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 - [x] Contrato OpenAPI e ferramentas iniciais de observabilidade
 - [x] Autenticação inicial por tenant com isolamento das chaves no Redis
 - [x] Capacidades individuais por tenant, com período global compartilhado
-- [ ] Rotação e revogação dinâmica de credenciais e períodos individuais por tenant
-- [ ] Proteção de cardinalidade e consumo de memória
+- [x] Rotação gradual de credenciais por configuração (com reinício)
+- [ ] Revogação dinâmica de credenciais e períodos individuais por tenant
+- [x] Limite atômico de chaves ativas por tenant e limite de eventos por chave
+- [ ] Planejamento de memória/tenants e testes de estresse representativos
 - [x] Ponte Micrometer Tracing com OpenTelemetry
-- [ ] Exportação de traces, correlação ponta a ponta e testes de failover
-- [ ] SonarQube conectado e benchmarks validados
+- [x] Exportador OTLP e Jaeger local
+- [x] Teste automatizado de parada/reinício do Redis
+- [ ] Validação de failover Sentinel/Cluster e correlação distribuída ponta a ponta
+- [x] Workflow opcional SonarQube e benchmark de fumaça k6
+- [ ] SonarQube conectado e benchmark de carga representativa validado
 - [ ] Auditoria e revisão operacional para produção
 
 ---
