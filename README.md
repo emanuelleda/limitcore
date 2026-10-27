@@ -23,7 +23,7 @@
 
 O **LimitCore** é uma API REST open source para **rate limiting distribuído**. Ela permite que sistemas consultem se uma requisição pode ser aceita conforme uma quota definida no servidor.
 
-O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis. A configuração opcional `LIMITCORE_TENANTS` permite autenticação por tenant e isolamento dos contadores; ainda não há quotas distintas por tenant.
+O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis. A configuração opcional `LIMITCORE_TENANTS` permite autenticação por tenant e isolamento dos contadores; capacidades distintas podem ser configuradas por tenant; o período e o algoritmo ainda são globais.
 
 | 🔐 Segurança inicial | ⚙️ Consistência | 🧪 Qualidade | 📈 Observabilidade |
 | :---: | :---: | :---: | :---: |
@@ -159,6 +159,7 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 | --- | --- | --- |
 | `LIMITCORE_API_KEY` | Vazio | Credencial legada compartilhada (tenant `default`) |
 | `LIMITCORE_TENANTS` | Vazio | Credenciais opcionais por tenant no formato `tenant=segredo,tenant2=segredo2` |
+| `LIMITCORE_TENANT_CAPACITIES` | Vazio | Quotas opcionais por tenant: `tenant=20,tenant2=100` (mesmo período global) |
 | `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
 | `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
 | `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
@@ -189,7 +190,8 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 - [x] CI, CodeQL, Dependabot e JaCoCo
 - [x] Contrato OpenAPI e ferramentas iniciais de observabilidade
 - [x] Autenticação inicial por tenant com isolamento das chaves no Redis
-- [ ] Políticas e quotas individuais por cliente, rotação e revogação dinâmica
+- [x] Capacidades individuais por tenant, com período global compartilhado
+- [ ] Rotação e revogação dinâmica de credenciais e períodos individuais por tenant
 - [ ] Proteção de cardinalidade e consumo de memória
 - [ ] Tracing distribuído e testes de failover
 - [ ] SonarQube conectado e benchmarks validados
