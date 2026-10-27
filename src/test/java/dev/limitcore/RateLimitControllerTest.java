@@ -90,6 +90,27 @@ class RateLimitControllerTest {
             new RateLimitController(mock(StringRedisTemplate.class), "secret", 10, 60,
                 "fixed-window", "", "", 0));
     }
+    @Test void acceptsBothSecretsDuringStagedRotation() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class),
+                any(String.class), any(String.class))).thenReturn(1L);
+        var controller = new RateLimitController(redis, "", 10, 60, "fixed-window",
+            "alpha=abcdefghijklmnop|qrstuvwxyzabcdef");
+        assertTrue(controller.check("abcdefghijklmnop",
+            new RateLimitController.CheckRequest("one")).getBody().allowed());
+        assertTrue(controller.check("qrstuvwxyzabcdef",
+            new RateLimitController.CheckRequest("two")).getBody().allowed());
+    }
+    @Test void rejectsCredentialsSharedAcrossTenants() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60,
+                "fixed-window", "alpha=abcdefghijklmnop,beta=abcdefghijklmnop"));
+    }
+    @Test void rejectsLegacySecretOverlapWithTenant() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "abcdefghijklmnop", 10, 60,
+                "fixed-window", "alpha=abcdefghijklmnop"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
