@@ -37,6 +37,24 @@ class RateLimitControllerTest {
     @Test void rejectsOversizedSlidingWindow() {
         assertThrows(IllegalArgumentException.class, () -> new RateLimitController(mock(StringRedisTemplate.class), "secret", 10001, 60, "sliding-window"));
     }
+
+    @Test void failsClosedWhenRedisIsUnavailable() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class)))
+            .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("Redis unavailable"));
+        assertThrows(org.springframework.data.redis.RedisConnectionFailureException.class,
+            () -> controller(redis,"fixed-window").check("secret", new RateLimitController.CheckRequest("user-1")));
+    }
+    @Test void rejectsMissingApiKey() {
+        var redis = mock(StringRedisTemplate.class);
+        assertEquals(401, controller(redis,"fixed-window")
+            .check(null, new RateLimitController.CheckRequest("user-1")).getStatusCode().value());
+        verifyNoInteractions(redis);
+    }
+    @Test void rejectsInvalidQuotaConfiguration() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "secret", 0, 60, "fixed-window"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
