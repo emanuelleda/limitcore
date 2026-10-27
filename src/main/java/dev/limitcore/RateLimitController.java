@@ -120,6 +120,11 @@ public class RateLimitController {
         this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000);
     }
 
+    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
+            int windowSeconds, String algorithm, String tenants, String tenantCapacities) {
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000);
+    }
+
     private static Map<String,List<String>> parseTenants(String configuration) {
         Map<String,List<String>> parsed = new HashMap<>();
         Set<String> credentials = new HashSet<>();
