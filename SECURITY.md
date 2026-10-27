@@ -1,20 +1,29 @@
-# Security policy
+# Política de segurança
 
-This repository is pre-release and not approved for internet-facing production use.
+O **LimitCore** é um projeto em evolução e **não possui aprovação formal para uso em produção exposta à internet**.
 
-Report vulnerabilities privately through GitHub private vulnerability reporting when available.
+## Como relatar vulnerabilidades
 
-## Current safeguards
-- Requests require an API key via X-API-Key; an empty server key rejects all requests.
-- Quotas are server-owned; request payloads cannot override limits.
-- Local Redis Compose port is bound to loopback.
-- Redis errors do not automatically grant access.
+Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso esteja habilitada no repositório. Evite divulgar detalhes de exploração em *issues* públicas.
 
-## Outstanding risks
-- One shared API key, no per-tenant authorization, rotation or revocation.
-- No network-level request body or key-cardinality controls.
-- Redis failover can lose recently acknowledged writes.
-- No independent penetration test or load test.
-- Metrics and management endpoints require deployment-specific access controls.
+## Proteções implementadas
 
-Deploy behind a trusted network boundary only. Do not commit credentials.
+- A API exige uma chave no cabeçalho `X-API-Key`.
+- Sem chave configurada no servidor, as solicitações não são autorizadas.
+- O cliente não pode alterar a quota por meio do corpo da requisição.
+- Os identificadores recebidos são transformados em hash SHA-256 antes de compor as chaves no Redis.
+- O Redis local, no Docker Compose, utiliza porta vinculada ao loopback.
+- Falhas de Redis não produzem uma autorização positiva automática.
+- O endpoint Prometheus não é exposto por padrão.
+
+## Riscos e limitações
+
+- A autenticação utiliza uma chave compartilhada, sem isolamento multitenant.
+- Ainda não há rotação ou revogação individual de credenciais.
+- Não existe controle completo de cardinalidade de chaves ou tamanho das requisições na borda.
+- Uma troca de primário no Redis pode causar perda de incrementos recentes.
+- Não foi concluída uma auditoria independente de segurança nem uma avaliação operacional de produção.
+
+## Recomendações de implantação
+
+Utilize HTTPS, gerenciamento seguro de segredos, isolamento de rede, autenticação na borda e restrição dos endpoints administrativos. Nunca inclua credenciais no repositório.
