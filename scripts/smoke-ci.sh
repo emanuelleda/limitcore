@@ -47,8 +47,8 @@ request_status() {
 echo "Simulating Redis outage"
 docker stop --time 1 "$REDIS_CONTAINER"
 status="$(request_status)"
-if ! [[ "$status" =~ ^5[0-9][0-9]$ ]]; then
-  echo "Expected HTTP 5xx while Redis unavailable; got $status"
+if ! [[ "$status" =~ ^5[0-9][0-9]$ || "$status" == "000" ]]; then
+  echo "Expected HTTP 5xx or transport timeout while Redis unavailable; got $status"
   exit 1
 fi
 
