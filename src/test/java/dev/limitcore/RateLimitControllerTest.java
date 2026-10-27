@@ -55,6 +55,21 @@ class RateLimitControllerTest {
         assertThrows(IllegalArgumentException.class, () ->
             new RateLimitController(mock(StringRedisTemplate.class), "secret", 0, 60, "fixed-window"));
     }
+    @Test void tenantsHaveIndependentRedisKeys() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class))).thenReturn(1L);
+        var controller = new RateLimitController(redis, "", 10, 60, "fixed-window",
+            "alpha=abcdefghijklmnop,beta=qrstuvwxyzabcdef");
+        assertTrue(controller.check("abcdefghijklmnop", new RateLimitController.CheckRequest("same")).getBody().allowed());
+        assertTrue(controller.check("qrstuvwxyzabcdef", new RateLimitController.CheckRequest("same")).getBody().allowed());
+        var captor = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        verify(redis, times(2)).execute(any(RedisScript.class), captor.capture(), any(String.class), any(String.class));
+        assertNotEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
+    }
+    @Test void invalidTenantCredentialsFailAtStartup() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60, "fixed-window", "alpha=short"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }
