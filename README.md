@@ -63,7 +63,7 @@ flowchart LR
 | **Token Bucket** | `token-bucket` | Tokens repostos progressivamente | Permite rajadas controladas |
 | **Sliding Window** | `sliding-window` | Eventos em janela móvel | Controle mais preciso |
 
-Todos usam scripts Lua para manter a operação atômica em um primário Redis. [Entenda as diferenças →](docs/algorithms.md)
+Todos usam scripts Lua para manter a operação atômica em um primário Redis. A janela deslizante aceita capacidade máxima de 10.000 eventos por chave, como proteção inicial de memória. [Entenda as diferenças →](docs/algorithms.md)
 
 ## 🚀 Início rápido
 
