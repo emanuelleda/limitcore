@@ -73,4 +73,4 @@ Licensed under MIT.
 - [Grafana dashboard JSON](monitoring/grafana/dashboards/limitcore.json)
 - [k6 benchmark](benchmarks/k6.js)
 
-Run Prometheus locally with `docker compose -f monitoring/compose.yaml up -d` after starting the API on your host. Metrics are exposed on `/actuator/prometheus`; restrict management endpoint access in production. For a load test install k6, set `LIMITCORE_API_KEY`, and run `k6 run benchmarks/k6.js`. Benchmark thresholds are examples, not verified SLOs.
+Run Prometheus locally with `docker compose -f monitoring/compose.yaml up -d` after starting the API on your host. Prometheus is **not exposed by default**. Enable it only on a trusted network by setting `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus` and securing access to the actuator endpoints. For a load test install k6, set `LIMITCORE_API_KEY`, and run `k6 run benchmarks/k6.js`. Benchmark thresholds are examples, not verified SLOs.
