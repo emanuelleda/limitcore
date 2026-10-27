@@ -21,9 +21,9 @@ Resposta JSON: allowed = true/false
 ## Componentes
 
 - **API REST:** recebe a identificação da chave lógica e retorna uma decisão.
-- **Autenticação inicial:** valida uma chave de API compartilhada.
+- **Autenticação:** suporta uma credencial compartilhada legada ou credenciais estáticas separadas por tenant (até duas durante uma rotação).
 - **Algoritmos:** janela fixa, balde de tokens e janela deslizante.
-- **Redis:** mantém o estado compartilhado entre instâncias da aplicação.
+- **Redis:** mantém os contadores e um conjunto ordenado de identificadores ativos por tenant; chaves da mesma organização compartilham um slot no Redis Cluster.
 - **Scripts Lua:** executam verificações e alterações do estado de maneira atômica no primário.
 
 ## Consistência e disponibilidade
@@ -38,6 +38,8 @@ O endpoint retorna HTTP 200 tanto para decisões positivas quanto negativas. A a
 
 ## Considerações operacionais
 
-O armazenamento da janela deslizante cresce com a quantidade de eventos e chaves ativas. Em Redis Cluster, as chaves utilizadas pelo mesmo script precisam compartilhar o mesmo *hash slot*. A autenticação atual não equivale a um sistema completo de identidade multitenant.
+O armazenamento da janela deslizante cresce com a quantidade de eventos e chaves ativas. A implementação agrupa chaves de um mesmo tenant em uma *hash tag* Redis, garantindo que as operações multichave sejam executadas no mesmo slot. O limite `LIMITCORE_MAX_ACTIVE_KEYS` é verificado atomicamente junto com a decisão de quota. Isso cria um limite previsível de cardinalidade, mas concentra o processamento de um tenant no mesmo slot.
+
+**Migração de estado:** o novo layout `limitcore:{hash-do-tenant}:hash-da-chave` não reutiliza o layout anterior; a atualização reinicia quotas ativas. Um limite de cardinalidade atingido retorna `allowed=false`, assim como uma quota esgotada. Ainda não há políticas de memória globais, redistribuição entre slots do mesmo tenant ou identidade corporativa completa.
 
 Consulte [algoritmos](algorithms.md), [operações](operations.md) e [segurança](../SECURITY.md).
