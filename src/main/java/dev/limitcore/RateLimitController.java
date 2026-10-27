@@ -161,7 +161,7 @@ public class RateLimitController {
             case "sliding-window" -> redis.execute(SLIDING_WINDOW, List.of(key, key + ":seq"),
                 String.valueOf(windowMillis), String.valueOf(quota));
             default -> redis.execute(FIXED_WINDOW, List.of(key),
-                String.valueOf(windowMillis), String.valueOf(capacity));
+                String.valueOf(windowMillis), String.valueOf(quota));
         };
         if (result == null) throw new IllegalStateException("Redis returned no result");
         return ResponseEntity.ok(new CheckResponse(result == 1L, algorithm));
