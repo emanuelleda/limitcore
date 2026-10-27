@@ -69,6 +69,8 @@ public class RateLimitController {
             throw new IllegalArgumentException("Invalid server-side quota configuration");
         if (!List.of("fixed-window", "token-bucket", "sliding-window").contains(algorithm))
             throw new IllegalArgumentException("Unsupported algorithm");
+        if (algorithm.equals("sliding-window") && capacity > 10000)
+            throw new IllegalArgumentException("Sliding window capacity must not exceed 10000");
         this.capacity = capacity;
         this.windowSeconds = windowSeconds;
         this.algorithm = algorithm;
