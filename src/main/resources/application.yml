@@ -9,6 +9,7 @@ limitcore:
   api-key: ${LIMITCORE_API_KEY:}
   tenants: ${LIMITCORE_TENANTS:}
   tenant-capacities: ${LIMITCORE_TENANT_CAPACITIES:}
+  max-active-keys: ${LIMITCORE_MAX_ACTIVE_KEYS:1000}
   capacity: ${LIMITCORE_CAPACITY:100}
   window-seconds: ${LIMITCORE_WINDOW_SECONDS:60}
   algorithm: ${LIMITCORE_ALGORITHM:fixed-window}
