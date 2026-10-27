@@ -9,6 +9,7 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 ## Proteções implementadas
 
 - A API exige uma chave no cabeçalho `X-API-Key`.
+- A configuração opcional `LIMITCORE_TENANTS` associa credenciais a tenants e isola as chaves de quota no Redis.
 - Sem chave configurada no servidor, as solicitações não são autorizadas.
 - O cliente não pode alterar a quota por meio do corpo da requisição.
 - Os identificadores recebidos são transformados em hash SHA-256 antes de compor as chaves no Redis.
@@ -18,8 +19,8 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 
 ## Riscos e limitações
 
-- A autenticação utiliza uma chave compartilhada, sem isolamento multitenant.
-- Ainda não há rotação ou revogação individual de credenciais.
+- O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática e não implementa quotas individuais.
+- Ainda não há rotação ou revogação dinâmica de credenciais; alterações exigem atualização da configuração.
 - Não existe controle completo de cardinalidade de chaves ou tamanho das requisições na borda.
 - Uma troca de primário no Redis pode causar perda de incrementos recentes.
 - Não foi concluída uma auditoria independente de segurança nem uma avaliação operacional de produção.
