@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -54,6 +56,7 @@ public class RateLimitController {
         """, Long.class);
     private final StringRedisTemplate redis;
     private final String configuredApiKey;
+    private final Map<String,String> tenantKeys;
     private final int capacity;
     private final int windowSeconds;
     private final String algorithm;
@@ -62,9 +65,11 @@ public class RateLimitController {
             @Value("${limitcore.api-key:}") String apiKey,
             @Value("${limitcore.capacity:100}") int capacity,
             @Value("${limitcore.window-seconds:60}") int windowSeconds,
-            @Value("${limitcore.algorithm:fixed-window}") String algorithm) {
+            @Value("${limitcore.algorithm:fixed-window}") String algorithm,
+            @Value("${limitcore.tenants:}") String tenants) {
         this.redis = redis;
         this.configuredApiKey = apiKey;
+        this.tenantKeys = parseTenants(tenants);
         if (capacity < 1 || capacity > 1000000 || windowSeconds < 1 || windowSeconds > 86400)
             throw new IllegalArgumentException("Invalid server-side quota configuration");
         if (!List.of("fixed-window", "token-bucket", "sliding-window").contains(algorithm))
@@ -74,6 +79,35 @@ public class RateLimitController {
         this.capacity = capacity;
         this.windowSeconds = windowSeconds;
         this.algorithm = algorithm;
+    }
+
+    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
+            int windowSeconds, String algorithm) {
+        this(redis, apiKey, capacity, windowSeconds, algorithm, "");
+    }
+
+    private static Map<String,String> parseTenants(String configuration) {
+        Map<String,String> parsed = new HashMap<>();
+        if (configuration == null || configuration.isBlank()) return Map.of();
+        for (String entry : configuration.split(",")) {
+            String[] parts = entry.split("=", 2);
+            if (parts.length != 2 || !parts[0].matches("[A-Za-z0-9_-]{1,64}")
+                    || parts[1].length() < 16 || parsed.putIfAbsent(parts[0], parts[1]) != null)
+                throw new IllegalArgumentException("Invalid tenant credentials configuration");
+        }
+        return Map.copyOf(parsed);
+    }
+
+    private String authenticate(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) return null;
+        byte[] candidate = sha256(apiKey.getBytes(StandardCharsets.UTF_8));
+        for (var entry : tenantKeys.entrySet()) {
+            if (MessageDigest.isEqual(candidate, sha256(entry.getValue().getBytes(StandardCharsets.UTF_8))))
+                return entry.getKey();
+        }
+        if (!configuredApiKey.isBlank() && MessageDigest.isEqual(candidate,
+                sha256(configuredApiKey.getBytes(StandardCharsets.UTF_8)))) return "default";
+        return null;
     }
 
     private static byte[] sha256(byte[] input) {
@@ -88,13 +122,12 @@ public class RateLimitController {
     public ResponseEntity<CheckResponse> check(
             @RequestHeader(value="X-API-Key", required=false) String apiKey,
             @Valid @RequestBody CheckRequest request) {
-        if (configuredApiKey.isBlank() || apiKey == null ||
-                !MessageDigest.isEqual(configuredApiKey.getBytes(StandardCharsets.UTF_8),
-                    apiKey.getBytes(StandardCharsets.UTF_8)))
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String tenant = authenticate(apiKey);
+        if (tenant == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         long windowMillis = windowSeconds * 1000L;
-        String key = "limitcore:{" + HexFormat.of().formatHex(sha256(request.key().getBytes(StandardCharsets.UTF_8))) + "}";
+        String key = "limitcore:{" + HexFormat.of().formatHex(
+            sha256((tenant + ":" + request.key()).getBytes(StandardCharsets.UTF_8))) + "}";
         Long result = switch (algorithm) {
             case "token-bucket" -> redis.execute(TOKEN_BUCKET, List.of(key),
                 String.valueOf(capacity), String.valueOf((double) capacity / windowSeconds),
