@@ -1,19 +1,43 @@
-# Architecture
+# Arquitetura do LimitCore
 
-Clients -> authenticated HTTP decision endpoint -> Spring Boot -> atomic Redis Lua script.
+## Fluxo de uma solicitação
 
-Multiple instances share state through the same Redis primary. Algorithm selected at startup with LIMITCORE_ALGORITHM.
+```text
+Aplicação cliente
+      |
+      | POST /v1/limits/check + X-API-Key
+      v
+API Spring Boot
+      |
+      | Validação, autenticação e quota configurada
+      v
+Script Lua executado no Redis
+      |
+      | Decisão atômica
+      v
+Resposta JSON: allowed = true/false
+```
 
-- Fixed window: counter + TTL.
-- Token bucket: fractional refill from Redis server time.
-- Sliding window: sorted-set log, unique members via per-key counter, bounded by accepted requests per window.
+## Componentes
 
-## Consistency and failure behavior
+- **API REST:** recebe a identificação da chave lógica e retorna uma decisão.
+- **Autenticação inicial:** valida uma chave de API compartilhada.
+- **Algoritmos:** janela fixa, balde de tokens e janela deslizante.
+- **Redis:** mantém o estado compartilhado entre instâncias da aplicação.
+- **Scripts Lua:** executam verificações e alterações do estado de maneira atômica no primário.
 
-Lua executes atomically on one Redis primary. Redis replication and failover do not guarantee zero lost increments. No cross-region global consistency guarantee is made. Redis outages produce errors rather than allowing requests. This is not a substitute for API gateway authentication or transport security.
+## Consistência e disponibilidade
 
-## Operational caveats
+Diferentes instâncias da API podem compartilhar um mesmo Redis. Entretanto, a replicação e o *failover* do Redis não garantem a preservação de todos os incrementos reconhecidos. Não há garantia de consistência entre regiões.
 
-The API returns decision JSON, not HTTP 429. The shared API key is a prototype credential, not a tenant identity. Sliding-window storage scales with accepted requests and number of distinct keys. A Redis Cluster deployment needs compatible hash slots for the sorted-set and sequence keys.
+Uma falha de comunicação com o Redis provoca erro, em vez de liberar automaticamente a solicitação.
 
-See [algorithms](algorithms.md) and [security](../SECURITY.md).
+## Contrato HTTP
+
+O endpoint retorna HTTP 200 tanto para decisões positivas quanto negativas. A aplicação cliente deve verificar o campo `allowed`. O LimitCore não atua como proxy nem aplica HTTP 429 diretamente ao usuário final.
+
+## Considerações operacionais
+
+O armazenamento da janela deslizante cresce com a quantidade de eventos e chaves ativas. Em Redis Cluster, as chaves utilizadas pelo mesmo script precisam compartilhar o mesmo *hash slot*. A autenticação atual não equivale a um sistema completo de identidade multitenant.
+
+Consulte [algoritmos](algorithms.md), [operações](operations.md) e [segurança](../SECURITY.md).
