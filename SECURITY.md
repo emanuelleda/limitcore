@@ -19,7 +19,7 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 
 ## Riscos e limitações
 
-- O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática e não implementa quotas individuais.
+- O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática; capacidades individuais podem ser configuradas, mas os períodos são globais.
 - Ainda não há rotação ou revogação dinâmica de credenciais; alterações exigem atualização da configuração.
 - Não existe controle completo de cardinalidade de chaves ou tamanho das requisições na borda.
 - Uma troca de primário no Redis pode causar perda de incrementos recentes.
