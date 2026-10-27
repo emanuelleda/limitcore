@@ -17,6 +17,17 @@ jobs:
           cache: maven
       - name: Unit and Redis integration tests
         run: mvn -B -ntp verify
+      - name: Generate CycloneDX SBOM
+        run: |
+          mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom -DskipTests
+          test -s target/bom.json && test -s target/bom.xml
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyclonedx-sbom
+          path: |
+            target/bom.json
+            target/bom.xml
       - name: Upload JaCoCo coverage
         if: always()
         uses: actions/upload-artifact@v4
