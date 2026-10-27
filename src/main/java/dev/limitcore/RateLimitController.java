@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -73,6 +74,11 @@ public class RateLimitController {
         this.algorithm = algorithm;
     }
 
+    private static byte[] sha256(byte[] input) {
+        try { return MessageDigest.getInstance("SHA-256").digest(input); }
+        catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
+
     public record CheckRequest(@NotBlank @Pattern(regexp="[a-zA-Z0-9:_-]{1,128}") String key) {}
     public record CheckResponse(boolean allowed, String algorithm) {}
 
@@ -86,7 +92,7 @@ public class RateLimitController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         long windowMillis = windowSeconds * 1000L;
-        String key = "limitcore:{" + request.key() + "}";
+        String key = "limitcore:{" + HexFormat.of().formatHex(sha256(request.key().getBytes(StandardCharsets.UTF_8))) + "}";
         Long result = switch (algorithm) {
             case "token-bucket" -> redis.execute(TOKEN_BUCKET, List.of(key),
                 String.valueOf(capacity), String.valueOf((double) capacity / windowSeconds),
