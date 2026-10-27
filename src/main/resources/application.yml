@@ -5,11 +5,16 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+limitcore:
+  api-key: ${LIMITCORE_API_KEY:}
+  capacity: ${LIMITCORE_CAPACITY:100}
+  window-seconds: ${LIMITCORE_WINDOW_SECONDS:60}
+  algorithm: ${LIMITCORE_ALGORITHM:fixed-window}
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 server:
   error:
     include-message: never
