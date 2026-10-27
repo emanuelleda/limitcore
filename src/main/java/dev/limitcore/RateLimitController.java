@@ -61,6 +61,7 @@ public class RateLimitController {
     private final int windowSeconds;
     private final String algorithm;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public RateLimitController(StringRedisTemplate redis,
             @Value("${limitcore.api-key:}") String apiKey,
             @Value("${limitcore.capacity:100}") int capacity,
