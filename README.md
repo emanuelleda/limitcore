@@ -216,6 +216,7 @@ Consulte o [guia de prontidão para produção](docs/production-readiness.md) e 
 | [🧪 Qualidade](docs/quality.md) | Testes, segurança e critérios de publicação |
 | [📝 ADR Redis Lua](docs/adr/0001-redis-lua.md) | Decisões arquiteturais |
 | [🔒 Segurança](SECURITY.md) | Riscos, recomendações e divulgação responsável |
+| [🛡️ Modelo de ameaças](docs/threat-model.md) | Limites de confiança, ataques e cenários de abuso |
 | [🤝 Contribuição](CONTRIBUTING.md) | Como colaborar com o projeto |
 
 ## 🗺️ Evolução do projeto
