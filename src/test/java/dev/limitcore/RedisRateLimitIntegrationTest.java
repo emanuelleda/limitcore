@@ -41,6 +41,42 @@ class RedisRateLimitIntegrationTest {
         }
     }
 
+
+    @Test void tokenBucketAndSlidingWindowRemainAtomicUnderConcurrency() throws Exception {
+        try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+                .withExposedPorts(6379)) {
+            redis.start();
+            var factory = new LettuceConnectionFactory(
+                new RedisStandaloneConfiguration(redis.getHost(), redis.getMappedPort(6379)));
+            factory.afterPropertiesSet();
+            try {
+                var template = new StringRedisTemplate(factory);
+                for (String algorithm : java.util.List.of("token-bucket", "sliding-window")) {
+                    var controller = new RateLimitController(template, "test-secret", 25, 3600, algorithm);
+                    var pool = Executors.newFixedThreadPool(12);
+                    try {
+                        var start = new CountDownLatch(1);
+                        var accepted = new AtomicInteger();
+                        var futures = new java.util.ArrayList<Future<?>>();
+                        for (int i = 0; i < 100; i++) {
+                            futures.add(pool.submit(() -> {
+                                start.await();
+                                if (controller.check("test-secret",
+                                        new RateLimitController.CheckRequest("parallel-" + algorithm))
+                                        .getBody().allowed()) accepted.incrementAndGet();
+                                return null;
+                            }));
+                        }
+                        start.countDown();
+                        for (var future : futures) future.get(30, TimeUnit.SECONDS);
+                        assertEquals(25, accepted.get(),
+                            algorithm + " must not accept more than configured capacity");
+                    } finally { pool.shutdownNow(); }
+                }
+            } finally { factory.destroy(); }
+        }
+    }
+
     @Test void tenantCountersRemainIsolatedInRealRedis() {
         try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
                 .withExposedPorts(6379)) {
