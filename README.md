@@ -34,7 +34,7 @@ O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** g
 | Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
 > [!IMPORTANT]
-> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, conexão do SonarQube, provisão de segredos e revisão operacional. [Checklist de produção](docs/production-readiness.md).
+> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, proteção da branch, Dependency Review, provisão de segredos e revisão operacional. [Checklist de produção](docs/production-readiness.md).
 
 ## 🏗️ Arquitetura
 
@@ -168,7 +168,11 @@ O workflow **Load Baseline Evidence** executa uma matriz de três testes k6 (Fix
 
 O workflow **Security** também possui um `dependency-audit` obrigatório via Trivy que funciona sem o Dependency Graph; a revisão nativa do GitHub continua dependendo de sua habilitação.
 
-A configuração do SonarQube está preparada, mas uma análise conectada e seu *quality gate* ainda dependem de configuração externa.
+O **SonarQube Cloud está conectado**, com Quality Gate aprovado na `main` (workflow concluído em 28/10/2026). Verifique novamente os checks no SHA de cada nova release. A proteção da `main`, o Dependency Review nativo e os testes operacionais ainda precisam de validação externa.
+
+## 🧾 Prontidão para produção
+
+O status atual é **Release Candidate / NO-GO para produção real**. O SonarQube e os sete workflows passaram em `main`, mas a infraestrutura, a proteção da branch e o Dependency Review nativo ainda requerem evidências externas. Veja [Go / No-Go e validação de staging](docs/release-go-no-go.md) e execute o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) após a configuração administrativa.
 
 ## ⚙️ Configuração
 
