@@ -11,7 +11,11 @@ O workflow `API Smoke and Redis Recovery`:
 3. Interrompe o Redis e verifica que a API não fornece uma decisão positiva durante a falha (erro 5xx ou *timeout* de transporte).
 4. Reinicia o Redis e confirma que a API volta a responder HTTP 200.
 
-Este teste **não** cobre failover Sentinel/Cluster ou persistência dos contadores.
+O teste de parada/reinício **não** cobre failover Sentinel/Cluster ou persistência dos contadores.
+
+## Simulação Sentinel no CI
+
+O workflow `Redis Sentinel Failover` configura um primário e uma réplica Redis com **três sentinels e quórum dois**, inicia a API conectada ao Sentinel, derruba o primário, aguarda a promoção da réplica e verifica que a API volta a responder. Essa validação automatizada cobre o fluxo básico de eleição/reconexão. Não representa execução em múltiplos hosts, partição de rede, zonas de disponibilidade ou risco de perda de incrementos por replicação assíncrona.
 
 ## Benchmark manual
 
