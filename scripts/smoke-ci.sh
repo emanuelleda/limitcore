@@ -27,6 +27,19 @@ if ! grep -q "Production Redis connections must use TLS" "$PREFLIGHT_LOG"; then
   exit 1
 fi
 
+echo "Verifying production profile rejects missing Redis authentication"
+if env -u REDIS_PASSWORD SPRING_PROFILES_ACTIVE=production REDIS_SSL_ENABLED=true \
+  LIMITCORE_API_KEY="$LIMITCORE_API_KEY" timeout 30s \
+  java -jar target/limitcore-0.1.0-SNAPSHOT.jar >"$PREFLIGHT_LOG" 2>&1; then
+  echo "Production profile incorrectly started without Redis authentication"
+  exit 1
+fi
+if ! grep -q "Production Redis requires a password" "$PREFLIGHT_LOG"; then
+  echo "Production profile did not fail for the expected Redis auth check"
+  tail -80 "$PREFLIGHT_LOG"
+  exit 1
+fi
+
 java -jar target/limitcore-0.1.0-SNAPSHOT.jar >"$APP_LOG" 2>&1 &
 APP_PID=$!
 
