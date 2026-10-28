@@ -16,12 +16,14 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 - O Redis local, no Docker Compose, utiliza porta vinculada ao loopback.
 - Falhas de Redis não produzem uma autorização positiva automática.
 - O endpoint Prometheus não é exposto por padrão.
+- O perfil `production` exige credenciais configuradas, TLS para Redis e estabelece limites HTTP/Tomcat; o CI verifica a recusa de Redis sem TLS.
+- A imagem executa sem privilégios e é analisada com Trivy; vulnerabilidades HIGH/CRITICAL corrigíveis impedem publicação pelo workflow preparado.
 
 ## Riscos e limitações
 
 - O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática; capacidades individuais podem ser configuradas, mas os períodos são globais. O limite `LIMITCORE_MAX_ACTIVE_KEYS` controla a cardinalidade de identificadores ativos por tenant em Redis.
 - A rotação gradual de credenciais pode aceitar duas chaves temporárias por tenant via `LIMITCORE_TENANTS="tenant=antiga|nova"`; revogação dinâmica não é implementada: remova a chave antiga e reinicie todas as instâncias.
-- Não existe controle completo de cardinalidade de chaves ou tamanho das requisições na borda.
+- A API limita o corpo JSON de decisão a 1 KiB (inclusive em transferências chunked), o tamanho da chave de autenticação e a cardinalidade ativa por tenant. A borda ainda exige rate limiting por origem/IP, limite global de conexões, filtros de tráfego e monitoramento.
 - Uma troca de primário no Redis pode causar perda de incrementos recentes.
 - Não foi concluída uma auditoria independente de segurança nem uma avaliação operacional de produção.
 
