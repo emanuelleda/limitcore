@@ -15,7 +15,7 @@ if gh api "repos/$REPO/rulesets" --jq '.[] | .name' | grep -Fxq "$RULE_NAME"; th
 fi
 
 # Report missing workflow definitions before enforcing required checks.
-for workflow in ci.yml security.yml smoke.yml sentinel.yml production-tls.yml load-validation.yml; do
+for workflow in ci.yml security.yml sonar.yml smoke.yml sentinel.yml production-tls.yml load-validation.yml; do
   gh api "repos/$REPO/actions/workflows/$workflow" --jq .id >/dev/null || {
     echo "Missing required workflow: $workflow"
     exit 1
