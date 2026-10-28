@@ -65,6 +65,9 @@
           },
           {
             "context": "load-baseline"
+          },
+          {
+            "context": "dependency-audit"
           }
         ]
       }
