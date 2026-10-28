@@ -1,0 +1,120 @@
+# EXAMPLE ONLY. Publish an image, insert its real sha256 digest, and supply
+# a pre-existing Secret named limitcore-secrets before applying.
+# TLS termination, ingress policies, Redis HA, and secret management are external.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: limitcore-config
+data:
+  redis-host: REPLACE_WITH_TLS_REDIS_HOST
+  redis-port: "6379"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: limitcore
+  labels: {app: limitcore}
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app: limitcore}
+  template:
+    metadata:
+      labels: {app: limitcore}
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app: limitcore}
+      containers:
+        - name: api
+          # Never deploy a mutable tag; replace with the digest of a scanned image.
+          image: ghcr.io/emanuelleda/limitcore@sha256:REPLACE_WITH_PUBLISHED_IMAGE_DIGEST
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - {name: SPRING_PROFILES_ACTIVE, value: production}
+            - {name: REDIS_SSL_ENABLED, value: "true"}
+            - name: REDIS_HOST
+              valueFrom: {configMapKeyRef: {name: limitcore-config, key: redis-host}}
+            - name: REDIS_PORT
+              valueFrom: {configMapKeyRef: {name: limitcore-config, key: redis-port}}
+            - name: REDIS_PASSWORD
+              valueFrom: {secretKeyRef: {name: limitcore-secrets, key: redis-password}}
+            - name: LIMITCORE_TENANTS
+              valueFrom: {secretKeyRef: {name: limitcore-secrets, key: tenants}}
+            - {name: LIMITCORE_ALGORITHM, value: token-bucket}
+            - {name: LIMITCORE_CAPACITY, value: "100"}
+            - {name: LIMITCORE_WINDOW_SECONDS, value: "60"}
+            - {name: LIMITCORE_MAX_ACTIVE_KEYS, value: "1000"}
+            - {name: LIMITCORE_TOMCAT_MAX_THREADS, value: "100"}
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {cpu: "1", memory: 768Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+            periodSeconds: 5
+            failureThreshold: 2
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: limitcore
+  labels: {app: limitcore}
+spec:
+  type: ClusterIP
+  selector: {app: limitcore}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: limitcore
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: {app: limitcore}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: limitcore
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: limitcore}
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
