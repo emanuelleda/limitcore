@@ -12,6 +12,12 @@ jobs:
   load-baseline:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        algorithm: [fixed-window, token-bucket, sliding-window]
+    env:
+      LIMITCORE_ALGORITHM: ${{ matrix.algorithm }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -27,7 +33,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: load-baseline-evidence
+          name: load-baseline-${{ matrix.algorithm }}-evidence
           path: target/load-baseline/
           if-no-files-found: warn
           retention-days: 30
