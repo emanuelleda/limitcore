@@ -15,7 +15,7 @@ trap cleanup EXIT
 mkdir -p "$OUTPUT_DIR"
 # k6 runs as the current runner UID, so the artifact directory stays private.
 export LIMITCORE_API_KEY="ci-load-baseline-not-a-production-credential"
-export LIMITCORE_ALGORITHM=token-bucket
+export LIMITCORE_ALGORITHM="${LIMITCORE_ALGORITHM:-token-bucket}"
 export LIMITCORE_CAPACITY=5000
 export LIMITCORE_WINDOW_SECONDS=60
 export LIMITCORE_MAX_ACTIVE_KEYS=1000
