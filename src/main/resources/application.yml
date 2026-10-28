@@ -16,6 +16,10 @@ limitcore:
   window-seconds: ${LIMITCORE_WINDOW_SECONDS:60}
   algorithm: ${LIMITCORE_ALGORITHM:fixed-window}
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoint:
     health:
       show-details: never
