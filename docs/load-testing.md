@@ -17,6 +17,14 @@ O teste de parada/reinício **não** cobre failover Sentinel/Cluster ou persist�
 
 O workflow `Redis Sentinel Failover` configura um primário e uma réplica Redis com **três sentinels e quórum dois**, inicia a API conectada ao Sentinel, derruba o primário, aguarda a promoção da réplica e verifica que a API volta a responder. Essa validação automatizada cobre o fluxo básico de eleição/reconexão. Não representa execução em múltiplos hosts, partição de rede, zonas de disponibilidade ou risco de perda de incrementos por replicação assíncrona.
 
+## Benchmark controlado no CI (evidência reproduzível)
+
+O workflow [Load Baseline Evidence](https://github.com/emanuelleda/limitcore/actions/workflows/load-validation.yml) roda o k6 automaticamente em PRs, na `main` e semanalmente. O cenário fixo usa 20 VUs por 30 segundos, 100 identificadores, Token Bucket e um Redis no próprio runner. Ele exige checks acima de 99%, menos de 1% de falhas HTTP e p95 abaixo de 1.000 ms **nesse runner**, registrando p95/p99, throughput e comportamento de permissões.
+
+Os artefatos `load-baseline-evidence` preservam por 30 dias `configuration.json` (SHA, algoritmo, limites e topologia), `k6-summary.json` (métricas p95/p99 e requisições) e `k6-console.log`. Falhas de threshold bloqueiam o workflow e a release; falhas de parse de evidência também bloqueiam. Nenhum segredo é incluído no artefato.
+
+**Não use esses números para definir SLO de produção:** runner efêmero, rede loopback, uma instância API e um Redis são diferentes de HA, TLS real, infraestrutura multi-AZ e tráfego variado. Para o go-live, execute um segundo ensaio em staging representativo e retenha os artefatos.
+
 ## Benchmark manual
 
 Inicie Redis e API e configure a credencial. Em um terminal com k6 instalado, execute:
