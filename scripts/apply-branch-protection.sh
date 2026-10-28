@@ -22,6 +22,18 @@ for workflow in ci.yml security.yml sonar.yml smoke.yml sentinel.yml production-
   }
 done
 
+# Ensure required contexts match *actual* GitHub check-run names.
+# A k6 matrix publishes three separate load-baseline checks.
+main_sha="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+check_runs="$(gh api --method GET "repos/$REPO/commits/$main_sha/check-runs" -f per_page=100)"
+while IFS= read -r context; do
+  if ! jq -e --arg context "$context" '[.check_runs[] | .name] | index($context) != null' <<< "$check_runs" >/dev/null; then
+    echo "Required status context missing from main SHA $main_sha: $context" >&2
+    echo "Ensure checks have run and the names in the ruleset are correct." >&2
+    exit 1
+  fi
+done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context' docs/github-ruleset-main.json)
+
 echo "Creating active ruleset for main using the administrator's GitHub identity..."
 gh api -X POST "repos/$REPO/rulesets" \
   -H "Accept: application/vnd.github+json" \
