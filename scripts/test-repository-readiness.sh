@@ -7,7 +7,13 @@ cat > "$TMP/gh" <<'MOCK'
 #!/usr/bin/env bash
 args="$*"
 mode="${GH_MOCK_MODE:-pass}"
-if [[ "$args" == *"/branches/main"* ]]; then
+if [[ "$args" == *"/rules/branches/main"* ]]; then
+  if [[ "$mode" == "weak-rules" ]]; then
+    echo '[]'
+  else
+    jq -c '.rules' docs/github-ruleset-main.json
+  fi
+elif [[ "$args" == *"/branches/main"* ]]; then
   if [[ "$mode" == "unprotected" ]]; then echo false; else echo true; fi
 elif [[ "$args" == *"/actions/runs/41/jobs"* ]]; then
   if [[ "$mode" == "review-skipped" ]]; then
@@ -44,11 +50,11 @@ GH_MOCK_MODE=pass bash scripts/verify-repository-readiness.sh >"$TMP/pass.log" 2
   exit 1
 }
 
-for mode in unprotected review-skipped sonar-failed failed-check; do
+for mode in unprotected weak-rules review-skipped sonar-failed failed-check; do
   : > "$GITHUB_STEP_SUMMARY"
   if GH_MOCK_MODE="$mode" bash scripts/verify-repository-readiness.sh >"$TMP/$mode.log" 2>&1; then
     echo "Readiness preflight must fail closed for: $mode" >&2
     exit 1
   fi
 done
-echo "Repository preflight tests passed (positive and four negative cases)."
+echo "Repository preflight tests passed (positive and five negative cases)."
