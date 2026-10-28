@@ -2,17 +2,23 @@
 
 ## Testes automatizados
 
-O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto possui um teste de concorrência para o algoritmo de janela fixa.
+O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto cobre concorrência para a janela fixa e registro limitado de identificadores; há testes de isolamento de tenants e expiração de registros no Redis.
 
-O JaCoCo gera relatórios de cobertura, disponibilizados como artefatos do pipeline.
+O JaCoCo gera relatórios de cobertura, disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
 
 ## Segurança e dependências
 
-O workflow CodeQL realiza análise estática. A revisão de dependências é executada em *pull requests*, enquanto o Dependabot propõe atualizações periódicas.
+O workflow CodeQL realiza análise estática. A revisão automática de dependências em *pull requests* depende da ativação do Dependency graph e da variável `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true`; sem elas, esse job é ignorado. O Dependabot propõe atualizações periódicas.
 
 ## SonarQube
 
-O arquivo `sonar-project.properties` define caminhos básicos de análise. Para utilizar SonarQube ou SonarCloud, ainda é necessário configurar a organização, a autenticação e a integração com o repositório. Não publique tokens. **Uma aprovação de quality gate do SonarQube ainda não foi demonstrada.**
+O workflow opcional `.github/workflows/sonar.yml` executa testes, cobertura e análise quando existem `SONAR_TOKEN` (secret) e `SONAR_PROJECT_KEY` (variable). Configure também `SONAR_ORGANIZATION` para SonarCloud e, quando aplicável, `SONAR_HOST_URL`. Se não houver credenciais, o workflow informa que a análise foi ignorada. O arquivo `sonar-project.properties` define os caminhos de análise. Não publique tokens. **Uma aprovação de quality gate do SonarQube ainda não foi demonstrada.**
+
+## Smoke, benchmark e dependências
+
+O workflow `API Smoke and Redis Recovery` executa `benchmarks/smoke.js` com k6, valida o comportamento em uma parada de Redis e verifica retorno após reinício. Os limiares deste teste são de **sanidade do endpoint**, não metas de escala para produção. O `benchmarks/k6.js` aceita quantidade de VUs, duração, número de identificadores e limiar p95 parametrizados para execuções controladas. Consulte [guia de benchmark](load-testing.md). Ainda não há resultados de carga representativa publicados.
+
+A ação `dependency-review` depende de o **Dependency graph** estar habilitado nas configurações de segurança do GitHub. Enquanto isso não estiver configurado, o job correspondente só é ativado quando a variável do repositório `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true` for definida. CodeQL, CI e Dependabot têm configuração separada.
 
 ## Publicação de versões
 

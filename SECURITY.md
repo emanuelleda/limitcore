@@ -19,8 +19,8 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 
 ## Riscos e limitações
 
-- O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática; capacidades individuais podem ser configuradas, mas os períodos são globais.
-- Ainda não há rotação ou revogação dinâmica de credenciais; alterações exigem atualização da configuração.
+- O modo legado ainda permite uma chave compartilhada; o modo multitenant utiliza configuração estática; capacidades individuais podem ser configuradas, mas os períodos são globais. O limite `LIMITCORE_MAX_ACTIVE_KEYS` controla a cardinalidade de identificadores ativos por tenant em Redis.
+- A rotação gradual de credenciais pode aceitar duas chaves temporárias por tenant via `LIMITCORE_TENANTS="tenant=antiga|nova"`; revogação dinâmica não é implementada: remova a chave antiga e reinicie todas as instâncias.
 - Não existe controle completo de cardinalidade de chaves ou tamanho das requisições na borda.
 - Uma troca de primário no Redis pode causar perda de incrementos recentes.
 - Não foi concluída uma auditoria independente de segurança nem uma avaliação operacional de produção.

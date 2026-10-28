@@ -22,7 +22,7 @@ jobs:
           build-mode: none
       - uses: github/codeql-action/analyze@v3
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.LIMITCORE_DEPENDENCY_REVIEW_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

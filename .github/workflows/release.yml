@@ -18,7 +18,7 @@ jobs:
       - name: Testar e empacotar
         run: mvn -B -ntp verify
       - name: Gerar SBOM CycloneDX
-        run: mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom -DskipTests
+        run: mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom -DskipTests
       - name: Publicar artefatos da versão
         env:
           GH_TOKEN: ${{ github.token }}
