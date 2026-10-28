@@ -153,7 +153,7 @@ Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa 
 | **Testes** | JUnit, Mockito, Testcontainers |
 | **Build e infraestrutura** | Maven, Docker, Docker Compose |
 | **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
-| **Qualidade** | JaCoCo com cobertura mínima, Trivy, configuração SonarQube |
+| **Qualidade** | JaCoCo com gates de 90% em linhas e 75% em ramificações, Trivy, configuração SonarQube |
 | **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer/OTLP, k6, Sentinel |
 
 ## 🧪 Testes e integração contínua
