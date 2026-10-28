@@ -5,11 +5,44 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 cat > "$TMP/gh" <<'MOCK'
 #!/usr/bin/env bash
-if [[ "${GH_MOCK_FAIL_WORKFLOW:-}" != "" && "$*" == *"$GH_MOCK_FAIL_WORKFLOW"* ]]; then
-  printf '%s\n' '{"workflow_runs":[{"head_sha":"ci-test-sha","head_branch":"main","event":"push","conclusion":"failure"}]}'
-else
-  printf '{"workflow_runs":[{"head_sha":"%s","head_branch":"main","event":"push","conclusion":"success"}]}\n' "${GH_MOCK_RESULT_SHA:-ci-test-sha}"
-fi
+# Mock only the GitHub workflow-runs response. No remote network access.
+case "${GH_MOCK_MODE:-pass}" in
+  pass)
+    cat <<'JSON'
+{"workflow_runs":[{"head_sha":"ci-test-sha","head_branch":"main","event":"push","status":"completed","conclusion":"success","created_at":"2026-10-28T10:00:00Z","run_attempt":1}]}
+JSON
+    ;;
+  latest-failed)
+    cat <<'JSON'
+{"workflow_runs":[{"head_sha":"ci-test-sha","head_branch":"main","event":"push","status":"completed","conclusion":"failure","created_at":"2026-10-28T11:00:00Z","run_attempt":1},{"head_sha":"ci-test-sha","head_branch":"main","event":"push","status":"completed","conclusion":"success","created_at":"2026-10-28T10:00:00Z","run_attempt":1}]}
+JSON
+    ;;
+  pending)
+    cat <<'JSON'
+{"workflow_runs":[{"head_sha":"ci-test-sha","head_branch":"main","event":"push","status":"in_progress","conclusion":null,"created_at":"2026-10-28T10:00:00Z","run_attempt":1}]}
+JSON
+    ;;
+  wrong-sha)
+    cat <<'JSON'
+{"workflow_runs":[{"head_sha":"different-commit","head_branch":"main","event":"push","status":"completed","conclusion":"success","created_at":"2026-10-28T10:00:00Z","run_attempt":1}]}
+JSON
+    ;;
+  wrong-branch)
+    cat <<'JSON'
+{"workflow_runs":[{"head_sha":"ci-test-sha","head_branch":"feature","event":"pull_request","status":"completed","conclusion":"success","created_at":"2026-10-28T10:00:00Z","run_attempt":1}]}
+JSON
+    ;;
+  missing-security)
+    if [[ "$*" == *"security.yml"* ]]; then
+      printf '%s\n' '{"workflow_runs":[]}'
+    else
+      GH_MOCK_MODE=pass "$0" "$@"
+    fi
+    ;;
+  *)
+    exit 2
+    ;;
+esac
 MOCK
 chmod +x "$TMP/gh"
 
@@ -18,23 +51,17 @@ export GH_TOKEN=ci-fixture-token
 export GITHUB_REPOSITORY=example/limitcore
 export GITHUB_SHA=ci-test-sha
 
-bash scripts/verify-release-checks.sh >"$TMP/pass.log" || {
+GH_MOCK_MODE=pass bash scripts/verify-release-checks.sh >"$TMP/pass.log" || {
   cat "$TMP/pass.log"
-  echo "Release gate rejected valid successful runs"
+  echo "Release gate rejected successful latest checks"
   exit 1
 }
 
-export GH_MOCK_FAIL_WORKFLOW=security.yml
-if bash scripts/verify-release-checks.sh >"$TMP/failure.log" 2>&1; then
-  echo "Release gate accepted a failing Security workflow"
-  exit 1
-fi
+for scenario in latest-failed pending wrong-sha wrong-branch missing-security; do
+  if GH_MOCK_MODE="$scenario" bash scripts/verify-release-checks.sh >"$TMP/$scenario.log" 2>&1; then
+    echo "Release gate incorrectly accepted scenario: $scenario"
+    exit 1
+  fi
+done
 
-unset GH_MOCK_FAIL_WORKFLOW
-export GH_MOCK_RESULT_SHA=another-commit
-if bash scripts/verify-release-checks.sh >"$TMP/mismatch.log" 2>&1; then
-  echo "Release gate accepted successful checks for the wrong SHA"
-  exit 1
-fi
-
-echo "Exact-SHA release gate passed positive and negative tests"
+echo "Exact-SHA release gate passed all positive and negative checks"
