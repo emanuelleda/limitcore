@@ -35,6 +35,21 @@ jobs:
             -DnewVersion="$VERSION" -DgenerateBackupPoms=false
       - name: Testar e empacotar
         run: mvn -B -ntp verify
+      - name: Exigir Quality Gate SonarQube aprovado
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        run: |
+          if [[ -z "$SONAR_PROJECT_KEY" || -z "$SONAR_TOKEN" ]]; then
+            echo "::error::Configure SONAR_PROJECT_KEY e SONAR_TOKEN antes de publicar uma release"
+            exit 1
+          fi
+          PARAMS=("-Dsonar.projectKey=$SONAR_PROJECT_KEY" "-Dsonar.qualitygate.wait=true")
+          if [[ -n "$SONAR_ORGANIZATION" ]]; then PARAMS+=("-Dsonar.organization=$SONAR_ORGANIZATION"); fi
+          if [[ -n "$SONAR_HOST_URL" ]]; then PARAMS+=("-Dsonar.host.url=$SONAR_HOST_URL"); fi
+          mvn -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar "${PARAMS[@]}"
       - name: Gerar SBOM CycloneDX
         run: mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom -DskipTests
       - name: Publicar artefatos da versão
