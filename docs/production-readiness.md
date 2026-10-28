@@ -22,9 +22,10 @@
 | --- | --- |
 | CI, CodeQL, smoke, Sentinel e imagem | Todos verdes no SHA candidato, com artefatos retidos |
 | Trivy e dependências | Nenhum alerta HIGH/CRITICAL corrigível; demais riscos documentados |
-| SonarQube | Token e organização conectados; Quality Gate efetivamente aprovado |
+| SonarQube | Token e organização conectados; Quality Gate efetivamente aprovado; releases agora bloqueadas quando a integração não estiver configurada |
 | Dependency Review | Dependency Graph habilitado; checagem operante em pull request |
-| Versão | Tag imutável, GHCR publicado e digest pinado; SBOM e provenance verificáveis |
+| Proteção da branch principal | Regras de proteção na `main` com PR, CI, CodeQL, smoke, failover e bloqueio de bypass configuradas no GitHub |
+| Versão | Tag SemVer de commit na `main`, GHCR publicado e digest pinado; SBOM e provenance verificáveis |
 | Infraestrutura | Redis TLS/autenticado, HA, backups, certificação de certificados, recursos e isolamento de rede |
 | Segredos e acesso | Cofre de segredos, rotação e revogação testadas, TLS da API/ingress, controle de origens |
 | Escopo das quotas | Verificar se a quota deve ser por tenant ou por identidade; impedir identificadores de quota manipuláveis por usuários finais |
@@ -35,7 +36,7 @@
 
 ## Procedimento de preparação para rollout
 
-1. Revise os artefatos do workflow e as dependências. Nunca ignore alertas apenas para deixar o pipeline verde.
+1. Configure proteção da branch `main`, segredos SonarQube e aprovação do Quality Gate. Revise os artefatos do workflow e as dependências. Nunca ignore alertas apenas para deixar o pipeline verde.
 2. Construa uma imagem por tag a partir da `main`; use o digest publicado no deployment.
 3. Configure infraestrutura Redis/Sentinel e credenciais em um cofre. Configure `REDIS_SSL_ENABLED=true`.
 4. Inicie o perfil `production` em *staging*; exija 401 para credenciais inválidas, 413 para payloads grandes e readiness 503 quando Redis está indisponível.
@@ -56,3 +57,9 @@
 - A segurança do cluster, certificados e disponibilidade contínua não pode ser atestada apenas por arquivos versionados.
 
 Consulte [execução de carga](load-testing.md), [operações e incidentes](operations.md), [referência de implantação](../deploy/k8s/README.md) e [política de segurança](../SECURITY.md).
+
+## Estado dos controles externos
+
+- **GitHub Rulesets/branch protection:** a `main` não estava protegida na auditoria deste ciclo. É necessário configurá-la em **Settings → Rules → Rulesets** (ou Branch protection) e exigir revisões e checks de PR. O acesso da integração usada nesta auditoria não permite alterar regras administrativas.
+- **SonarQube:** o workflow contínuo permanece `skipped` enquanto faltarem credenciais/variáveis; release e publicação de imagens passam a falhar explicitamente sem Quality Gate.
+- **Infraestrutura real:** não há evidência de cluster Redis TLS com HA, cofre de segredos, ingress TLS, restauração de backup, destinatários de alertas e testes de carga representativos conectados a este repositório. Não deduza aprovação desses controles a partir de um workflow verde.
