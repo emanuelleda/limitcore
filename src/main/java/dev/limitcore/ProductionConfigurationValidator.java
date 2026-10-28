@@ -15,7 +15,8 @@ public final class ProductionConfigurationValidator {
     public ProductionConfigurationValidator(
             @Value("${limitcore.api-key:}") String apiKey,
             @Value("${limitcore.tenants:}") String tenants,
-            @Value("${spring.data.redis.ssl.enabled:false}") boolean redisTls) {
+            @Value("${spring.data.redis.ssl.enabled:false}") boolean redisTls,
+            @Value("${spring.data.redis.password:}") String redisPassword) {
         if ((apiKey == null || apiKey.isBlank()) && (tenants == null || tenants.isBlank())) {
             throw new IllegalStateException("Production requires configured API credentials");
         }
@@ -35,6 +36,9 @@ public final class ProductionConfigurationValidator {
         }
         if (!redisTls) {
             throw new IllegalStateException("Production Redis connections must use TLS");
+        }
+        if (redisPassword == null || redisPassword.getBytes(StandardCharsets.UTF_8).length < 16) {
+            throw new IllegalStateException("Production Redis requires a password of at least 16 UTF-8 bytes");
         }
     }
 }

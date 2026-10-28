@@ -8,6 +8,8 @@
 
 [![CI](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml)
 [![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
+[![Redis TLS](https://github.com/emanuelleda/limitcore/actions/workflows/production-tls.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/production-tls.yml)
+[![Sentinel](https://github.com/emanuelleda/limitcore/actions/workflows/sentinel.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/sentinel.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.2-6DB33F?logo=springboot&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-Lua-DC382D?logo=redis&logoColor=white)
@@ -198,9 +200,9 @@ A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Sm
 
 ## 🛡️ Perfil de produção e segurança
 
-Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis, incluindo uma decisão nula, geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200). **Atenção:** o modo `tenant` compartilha um limite entre todas as identidades de um mesmo cliente. Somente use `LIMITCORE_KEY_SCOPE=identifier` para quotas por usuário quando a identidade for atribuída por um serviço confiável e não puder ser escolhida livremente pelo consumidor.
+Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS, com senha Redis de no mínimo 16 bytes UTF-8**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis, incluindo uma decisão nula, geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200). **Atenção:** o modo `tenant` compartilha um limite entre todas as identidades de um mesmo cliente. Somente use `LIMITCORE_KEY_SCOPE=identifier` para quotas por usuário quando a identidade for atribuída por um serviço confiável e não puder ser escolhida livremente pelo consumidor.
 
-A cobertura mínima de linhas é exigida pelo Maven, o CI constrói a imagem não-root e o Trivy bloqueia vulnerabilidades altas/críticas corrigíveis. Há testes adicionais de eleição de primário Redis Sentinel, mas isso não comprova um SLA real em produção.
+A cobertura mínima de linhas é exigida pelo Maven, o CI constrói a imagem não-root e o Trivy bloqueia vulnerabilidades altas/críticas corrigíveis. Há testes adicionais de eleição de primário Redis Sentinel e execução do perfil `production` conectado a Redis **TLS + senha**, mas isso não comprova um SLA real em produção. O pipeline de release exige Quality Gate SonarQube e aprovações dos cinco workflows principais no SHA exato antes de publicar.
 
 Consulte o [guia de prontidão para produção](docs/production-readiness.md) e a [referência Kubernetes](deploy/k8s/README.md). O workflow de publicação versionada no GHCR está preparado, mas depende de uma tag de release e confirmação dos resultados.
 

@@ -16,13 +16,15 @@ O workflow opcional `.github/workflows/sonar.yml` executa testes, cobertura e an
 
 ## Smoke, benchmark e dependências
 
+O workflow `Production TLS and Authentication` usa uma autoridade certificadora temporária no CI e inicia o perfil `production` com Redis TLS + senha. Ele verifica autenticação, quotas por tenant, recusa de bypass por `key`, falha segura e recuperação após reinício. Isso não substitui testes com certificados e hosts reais.
+
 O workflow `Redis Sentinel Failover` exercita quórum de três sentinels, eleição de réplica e reconexão. O workflow `API Smoke and Redis Recovery` executa `benchmarks/smoke.js` com k6, valida o comportamento em uma parada de Redis e verifica retorno após reinício. Os limiares deste teste são de **sanidade do endpoint**, não metas de escala para produção. O `benchmarks/k6.js` aceita quantidade de VUs, duração, número de identificadores e limiar p95 parametrizados para execuções controladas. Consulte [guia de benchmark](load-testing.md). Ainda não há resultados de carga representativa publicados.
 
 A ação `dependency-review` depende de o **Dependency graph** estar habilitado nas configurações de segurança do GitHub. Enquanto isso não estiver configurado, o job correspondente só é ativado quando a variável do repositório `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true` for definida. CodeQL, CI e Dependabot têm configuração separada.
 
 ## Publicação de versões
 
-Os workflows `Release` e `Publish OCI Image` são acionados por tags SemVer no formato `vMAJOR.MINOR.PATCH` que pertençam à `main`. Ambos exigem testes e uma **análise SonarQube conectada com Quality Gate aprovado** (`SONAR_PROJECT_KEY` e `SONAR_TOKEN`). Enquanto essa integração não estiver configurada, uma publicação versionada deve falhar, em vez de prosseguir sem a qualidade exigida.
+Os workflows `Release` e `Publish OCI Image` são acionados por tags SemVer no formato `vMAJOR.MINOR.PATCH` que pertençam à `main`. Ambos exigem testes e uma **análise SonarQube conectada com Quality Gate aprovado** (`SONAR_PROJECT_KEY` e `SONAR_TOKEN`). Além disso, `scripts/verify-release-checks.sh` impede a publicação sem cinco workflows aprovados no **mesmo SHA** (`ci.yml`, `security.yml`, `smoke.yml`, `sentinel.yml` e `production-tls.yml`). O CI testa o gate usando resultados simulados positivos e negativos. Enquanto SonarQube não estiver configurado, uma publicação versionada deve falhar, em vez de prosseguir sem a qualidade exigida.
 
 O workflow `Release` produz JAR com versão sem `SNAPSHOT` igual à tag e inclui um SBOM CycloneDX. `Publish OCI Image` compila a mesma versão para uma imagem GHCR (sem tag `latest`), executa Trivy antes de publicar e inclui SBOM e proveniência. **Esses workflows ainda precisam de um ensaio real por tag**; testes de PR não exercitam a publicação.
 

@@ -74,6 +74,16 @@ jobs:
           mvn -B -ntp package -DskipTests
           test -s target/limitcore-0.1.1.jar
 
+  release-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell script syntax
+        run: |
+          for script in scripts/*.sh; do bash -n "$script"; done
+      - name: Test release gate on successful and failing checks
+        run: bash scripts/test-release-checks.sh
+
   observability:
     runs-on: ubuntu-latest
     steps:
