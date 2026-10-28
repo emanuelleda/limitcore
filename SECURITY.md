@@ -16,7 +16,7 @@ Prefira a funcionalidade de relato privado de vulnerabilidades do GitHub, caso e
 - O Redis local, no Docker Compose, utiliza porta vinculada ao loopback.
 - Falhas de Redis não produzem uma autorização positiva automática.
 - O endpoint Prometheus não é exposto por padrão.
-- O perfil `production` exige credenciais configuradas, TLS para Redis e estabelece limites HTTP/Tomcat; o CI verifica a recusa de Redis sem TLS.
+- O perfil `production` exige credenciais de pelo menos 32 bytes geradas de forma segura, TLS para Redis e estabelece limites HTTP/Tomcat; o CI verifica a recusa de Redis sem TLS.
 - A imagem executa sem privilégios e é analisada com Trivy; vulnerabilidades HIGH/CRITICAL corrigíveis impedem publicação pelo workflow preparado.
 
 ## Riscos e limitações
