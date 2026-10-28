@@ -16,6 +16,7 @@ if (!Number.isInteger(vus) || vus < 1 ||
 }
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   scenarios: { steady: { executor: 'constant-vus', vus, duration } },
   thresholds: {
     checks: ['rate>0.99'],
