@@ -117,6 +117,28 @@ class RedisRateLimitIntegrationTest {
         }
     }
 
+
+    @Test void tenantScopePreventsQuotaBypassByChangingRequestKey() {
+        try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+                .withExposedPorts(6379)) {
+            redis.start();
+            var factory = new LettuceConnectionFactory(
+                new RedisStandaloneConfiguration(redis.getHost(), redis.getMappedPort(6379)));
+            factory.afterPropertiesSet();
+            try {
+                var controller = new RateLimitController(new StringRedisTemplate(factory), "",
+                    2, 3600, "fixed-window", "alpha=abcdefghijklmnop", "", 1000, "tenant");
+                assertTrue(controller.check("abcdefghijklmnop",
+                    new RateLimitController.CheckRequest("identity-1")).getBody().allowed());
+                assertTrue(controller.check("abcdefghijklmnop",
+                    new RateLimitController.CheckRequest("identity-2")).getBody().allowed());
+                assertFalse(controller.check("abcdefghijklmnop",
+                    new RateLimitController.CheckRequest("identity-3")).getBody().allowed(),
+                    "A tenant must not reset its quota by changing the request key");
+            } finally { factory.destroy(); }
+        }
+    }
+
     @Test void tenantCountersRemainIsolatedInRealRedis() {
         try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
                 .withExposedPorts(6379)) {
