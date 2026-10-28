@@ -17,7 +17,7 @@ java -jar target/limitcore-0.1.0-SNAPSHOT.jar >"$APP_LOG" 2>&1 &
 APP_PID=$!
 
 for attempt in {1..45}; do
-  if curl --silent --fail --max-time 2 http://127.0.0.1:8080/actuator/health | grep -q '"UP"'; then
+  if curl --silent --fail --max-time 2 http://127.0.0.1:8080/actuator/health/readiness | grep -q '"UP"'; then
     break
   fi
   if [[ "$attempt" == 45 ]]; then
@@ -44,6 +44,17 @@ request_status() {
     -d '{"key":"failure-injection"}' || true
 }
 
+echo "Verifying bounded requests and authentication"
+status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    -X POST http://127.0.0.1:8080/v1/limits/check \
+    -H "X-API-Key: $LIMITCORE_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\\\"key\\\":\\\"$(printf 'x%.0s' {1..1100})\\\"}")"
+if [[ "$status" != 413 ]]; then
+  echo "Expected 413 for an oversized request; got $status"
+  exit 1
+fi
+
 echo "Simulating Redis outage"
 docker stop --time 1 "$REDIS_CONTAINER"
 status="$(request_status)"
@@ -51,13 +62,20 @@ if ! [[ "$status" =~ ^5[0-9][0-9]$ || "$status" == "000" ]]; then
   echo "Expected HTTP 5xx or transport timeout while Redis unavailable; got $status"
   exit 1
 fi
+ready_status="$(curl --silent --output /dev/null --max-time 5 --write-out '%{http_code}' \
+    http://127.0.0.1:8080/actuator/health/readiness || true)"
+if [[ "$ready_status" != 503 && "$ready_status" != 000 ]]; then
+  echo "Expected readiness to fail while Redis is offline; got $ready_status"
+  exit 1
+fi
 
 echo "Recovering Redis and verifying API can decide again"
 docker start "$REDIS_CONTAINER"
 for attempt in {1..25}; do
   status="$(request_status)"
-  if [[ "$status" == 200 ]]; then
-    echo "Redis outage and recovery smoke checks passed"
+  ready_status="$(curl --silent --output /dev/null --max-time 5 --write-out '%{http_code}' http://127.0.0.1:8080/actuator/health/readiness || true)"
+  if [[ "$status" == 200 && "$ready_status" == 200 ]]; then
+    echo "Redis outage, readiness, and recovery smoke checks passed"
     exit 0
   fi
   sleep 2
