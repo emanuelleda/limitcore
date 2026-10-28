@@ -2,12 +2,15 @@ name: SonarQube
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   sonar:
-    if: vars.SONAR_PROJECT_KEY != ''
+    # Never provide organization credentials to untrusted fork pull requests.
+    if: vars.SONAR_PROJECT_KEY != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
