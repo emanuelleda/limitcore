@@ -35,15 +35,18 @@ class RateLimitControllerTest {
         assertTrue(controller(redis,"sliding-window").check("secret",new RateLimitController.CheckRequest("user-1")).getBody().allowed());
     }
     @Test void rejectsOversizedSlidingWindow() {
-        assertThrows(IllegalArgumentException.class, () -> new RateLimitController(mock(StringRedisTemplate.class), "secret", 10001, 60, "sliding-window"));
+        var redis = mock(StringRedisTemplate.class);
+        assertThrows(IllegalArgumentException.class, () -> new RateLimitController(redis, "secret", 10001, 60, "sliding-window"));
     }
 
     @Test void failsClosedWhenRedisIsUnavailable() {
         var redis = mock(StringRedisTemplate.class);
         when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class), any(String.class)))
             .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("Redis unavailable"));
+        var quotaController = controller(redis, "fixed-window");
+        var request = new RateLimitController.CheckRequest("user-1");
         assertThrows(org.springframework.data.redis.RedisConnectionFailureException.class,
-            () -> controller(redis,"fixed-window").check("secret", new RateLimitController.CheckRequest("user-1")));
+            () -> quotaController.check("secret", request));
     }
     @Test void rejectsMissingApiKey() {
         var redis = mock(StringRedisTemplate.class);
@@ -52,8 +55,9 @@ class RateLimitControllerTest {
         verifyNoInteractions(redis);
     }
     @Test void rejectsInvalidQuotaConfiguration() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "secret", 0, 60, "fixed-window"));
+            new RateLimitController(redis, "secret", 0, 60, "fixed-window"));
     }
     @Test void tenantsHaveIndependentRedisKeys() {
         var redis = mock(StringRedisTemplate.class);
@@ -67,8 +71,9 @@ class RateLimitControllerTest {
         assertNotEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
     }
     @Test void invalidTenantCredentialsFailAtStartup() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60, "fixed-window", "alpha=short"));
+            new RateLimitController(redis, "", 10, 60, "fixed-window", "alpha=short"));
     }
     @Test void appliesTenantSpecificCapacities() {
         var redis = mock(StringRedisTemplate.class);
@@ -81,14 +86,16 @@ class RateLimitControllerTest {
         verify(redis).execute(any(RedisScript.class), anyList(), eq("60000"), eq("7"), eq("1000"));
     }
     @Test void rejectsUnknownTenantQuota() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60,
+            new RateLimitController(redis, "", 10, 60,
                 "fixed-window", "alpha=abcdefghijklmnop", "beta=3"));
     }
     @Test void rejectsInvalidActiveKeyLimit() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "secret", 10, 60,
-                "fixed-window", "", "", 0));
+            new RateLimitController(redis, "secret", 10, 60,
+                "fixed-window", "", "", 0, "identifier"));
     }
     @Test void acceptsBothSecretsDuringStagedRotation() {
         var redis = mock(StringRedisTemplate.class);
@@ -102,13 +109,15 @@ class RateLimitControllerTest {
             new RateLimitController.CheckRequest("two")).getBody().allowed());
     }
     @Test void rejectsCredentialsSharedAcrossTenants() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "", 10, 60,
+            new RateLimitController(redis, "", 10, 60,
                 "fixed-window", "alpha=abcdefghijklmnop,beta=abcdefghijklmnop"));
     }
     @Test void rejectsLegacySecretOverlapWithTenant() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "abcdefghijklmnop", 10, 60,
+            new RateLimitController(redis, "abcdefghijklmnop", 10, 60,
                 "fixed-window", "alpha=abcdefghijklmnop"));
     }
     @Test void recordsAllowedDeniedAndUnauthenticatedWithoutTenantLabels() {
@@ -140,9 +149,11 @@ class RateLimitControllerTest {
         verifyNoInteractions(redis);
     }
     @Test void rejectsOversizedLegacySecretAtStartup() {
+        var redis = mock(StringRedisTemplate.class);
+        var oversizedSecret = "x".repeat(257);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class),
-                "x".repeat(257), 10, 60, "fixed-window"));
+            new RateLimitController(redis,
+                oversizedSecret, 10, 60, "fixed-window"));
     }
     @Test void tenantScopeIgnoresUntrustedClientSelectedKeys() {
         var redis = mock(StringRedisTemplate.class);
@@ -161,17 +172,20 @@ class RateLimitControllerTest {
             "Changing a caller-supplied key must not escape tenant-wide limits");
     }
     @Test void invalidKeyScopeIsRejectedBeforeServingTraffic() {
+        var redis = mock(StringRedisTemplate.class);
         assertThrows(IllegalArgumentException.class, () ->
-            new RateLimitController(mock(StringRedisTemplate.class), "secret", 10, 60,
+            new RateLimitController(redis, "secret", 10, 60,
                 "fixed-window", "", "", 1000, "unknown"));
     }
     @Test void missingRedisDecisionFailsClosedAsServiceUnavailable() {
         var redis = mock(StringRedisTemplate.class);
-        assertThrows(org.springframework.dao.DataAccessResourceFailureException.class, () ->
-            controller(redis, "fixed-window").check("secret",
-                new RateLimitController.CheckRequest("user-1")));
+        var quotaController = controller(redis, "fixed-window");
+        var request = new RateLimitController.CheckRequest("user-1");
+        assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,
+            () -> quotaController.check("secret", request));
     }
     @Test void rejectsInvalidAlgorithm() {
-        assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
+        var redis = mock(StringRedisTemplate.class);
+        assertThrows(IllegalArgumentException.class, () -> controller(redis,"unknown"));
     }
 }

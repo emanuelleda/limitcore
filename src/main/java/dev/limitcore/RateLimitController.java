@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.HexFormat;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/v1/limits")
 public class RateLimitController {
+    private static final String SLIDING_WINDOW_ALGORITHM = "sliding-window";
+    private static final String IDENTIFIER_SCOPE = "identifier";
     private static final DefaultRedisScript<Long> FIXED_WINDOW = new DefaultRedisScript<>("""
         local now = redis.call('TIME')
         local ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)
@@ -78,7 +81,7 @@ public class RateLimitController {
     private final StringRedisTemplate redis;
     private final byte[] configuredApiKeyDigest;
     private final Map<String,List<byte[]>> tenantKeyDigests;
-    private volatile MeterRegistry meterRegistry;
+    private final AtomicReference<MeterRegistry> meterRegistry = new AtomicReference<>();
     private final int capacity;
     private final int maxActiveKeys;
     private final Map<String,Integer> tenantCapacities;
@@ -112,13 +115,13 @@ public class RateLimitController {
         this.tenantCapacities = parseCapacities(tenantCapacityConfig, tenantKeys);
         if (capacity < 1 || capacity > 1000000 || windowSeconds < 1 || windowSeconds > 86400)
             throw new IllegalArgumentException("Invalid server-side quota configuration");
-        if (!List.of("fixed-window", "token-bucket", "sliding-window").contains(algorithm))
+        if (!List.of("fixed-window", "token-bucket", SLIDING_WINDOW_ALGORITHM).contains(algorithm))
             throw new IllegalArgumentException("Unsupported algorithm");
-        if (algorithm.equals("sliding-window") && capacity > 10000)
+        if (algorithm.equals(SLIDING_WINDOW_ALGORITHM) && capacity > 10000)
             throw new IllegalArgumentException("Sliding window capacity must not exceed 10000");
         if (maxActiveKeys < 1 || maxActiveKeys > 100000)
             throw new IllegalArgumentException("Invalid maximum active keys configuration");
-        if (!List.of("identifier", "tenant").contains(keyScope))
+        if (!List.of(IDENTIFIER_SCOPE, "tenant").contains(keyScope))
             throw new IllegalArgumentException("Unsupported key scope");
         this.keyScope = keyScope;
         this.maxActiveKeys = maxActiveKeys;
@@ -129,24 +132,17 @@ public class RateLimitController {
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, "", "", 1000, "identifier");
+        this(redis, apiKey, capacity, windowSeconds, algorithm, "", "", 1000, IDENTIFIER_SCOPE);
     }
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm, String tenants) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000, "identifier");
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000, IDENTIFIER_SCOPE);
     }
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm, String tenants, String tenantCapacities) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000, "identifier");
-    }
-
-    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
-            int windowSeconds, String algorithm, String tenants, String tenantCapacities,
-            int maxActiveKeys) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities,
-                maxActiveKeys, "identifier");
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000, IDENTIFIER_SCOPE);
     }
 
     private static Map<String,List<String>> parseTenants(String configuration) {
@@ -158,16 +154,21 @@ public class RateLimitController {
             if (parts.length != 2 || !parts[0].matches("[A-Za-z0-9_-]{1,64}")
                     || parsed.containsKey(parts[0]))
                 throw new IllegalArgumentException("Invalid tenant credentials configuration");
-            String[] secrets = parts[1].split("\\|", -1);
-            if (secrets.length > 2) throw new IllegalArgumentException("At most two credentials per tenant");
-            for (String secret : secrets) {
-                if (secret.length() < 16 || secret.length() > 256 || !credentials.add(secret))
-                    throw new IllegalArgumentException("Invalid or duplicate tenant credential");
-            }
-            parsed.put(parts[0], List.of(secrets));
+            List<String> secrets = validateTenantSecrets(parts[1], credentials);
+            parsed.put(parts[0], secrets);
             if (parsed.size() > 1000) throw new IllegalArgumentException("Too many tenants");
         }
         return Map.copyOf(parsed);
+    }
+
+    private static List<String> validateTenantSecrets(String raw, Set<String> seen) {
+        String[] secrets = raw.split("\\|", -1);
+        if (secrets.length > 2) throw new IllegalArgumentException("At most two credentials per tenant");
+        for (String secret : secrets) {
+            if (secret.length() < 16 || secret.length() > 256 || !seen.add(secret))
+                throw new IllegalArgumentException("Invalid or duplicate tenant credential");
+        }
+        return List.of(secrets);
     }
 
     private static Map<String,Integer> parseCapacities(String configuration, Map<String,List<String>> tenants) {
@@ -188,11 +189,11 @@ public class RateLimitController {
 
     @Autowired
     public void setMeterRegistry(MeterRegistry meterRegistry) {
-        this.meterRegistry = meterRegistry;
+        this.meterRegistry.set(meterRegistry);
     }
 
     private void recordDecision(String outcome) {
-        MeterRegistry registry = this.meterRegistry;
+        MeterRegistry registry = this.meterRegistry.get();
         if (registry != null) {
             registry.counter("limitcore.decisions", "algorithm", algorithm, "outcome", outcome).increment();
         }
@@ -246,7 +247,7 @@ public class RateLimitController {
             case "token-bucket" -> redis.execute(TOKEN_BUCKET, List.of(key, registry),
                 String.valueOf(quota), String.valueOf((double) quota / windowSeconds),
                 String.valueOf(windowMillis), String.valueOf(maxActiveKeys));
-            case "sliding-window" -> redis.execute(SLIDING_WINDOW, List.of(key, key + ":seq", registry),
+            case SLIDING_WINDOW_ALGORITHM -> redis.execute(SLIDING_WINDOW, List.of(key, key + ":seq", registry),
                 String.valueOf(windowMillis), String.valueOf(quota), String.valueOf(maxActiveKeys));
             default -> redis.execute(FIXED_WINDOW, List.of(key, registry),
                 String.valueOf(windowMillis), String.valueOf(quota), String.valueOf(maxActiveKeys));

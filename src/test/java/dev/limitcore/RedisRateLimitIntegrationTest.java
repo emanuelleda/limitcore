@@ -1,6 +1,8 @@
 package dev.limitcore;
 
 import java.util.concurrent.*;
+import java.time.Duration;
+import static org.awaitility.Awaitility.await;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -189,7 +191,7 @@ class RedisRateLimitIntegrationTest {
             factory.afterPropertiesSet();
             try {
                 var controller = new RateLimitController(new StringRedisTemplate(factory), "secret",
-                    10, 60, "fixed-window", "", "", 5);
+                    10, 60, "fixed-window", "", "", 5, "identifier");
                 var pool = Executors.newFixedThreadPool(12);
                 try {
                     var start = new CountDownLatch(1);
@@ -225,7 +227,7 @@ class RedisRateLimitIntegrationTest {
                 for (String algorithm : java.util.List.of("fixed-window", "token-bucket", "sliding-window")) {
                     String tenant = "t-" + algorithm;
                     var controller = new RateLimitController(template, "", 3, 2, algorithm,
-                        tenant + "=abcdefghijklmnop", "", 2);
+                        tenant + "=abcdefghijklmnop", "", 2, "identifier");
                     controllers.add(controller);
                     assertTrue(controller.check("abcdefghijklmnop",
                         new RateLimitController.CheckRequest("a")).getBody().allowed());
@@ -234,11 +236,15 @@ class RedisRateLimitIntegrationTest {
                     assertFalse(controller.check("abcdefghijklmnop",
                         new RateLimitController.CheckRequest("c")).getBody().allowed());
                 }
-                Thread.sleep(2300);
-                for (var controller : controllers)
-                    assertTrue(controller.check("abcdefghijklmnop",
-                        new RateLimitController.CheckRequest("c")).getBody().allowed(),
-                        "Expired registry entries must release capacity");
+                await().atMost(Duration.ofSeconds(8))
+                    .pollInterval(Duration.ofMillis(100))
+                    .untilAsserted(() -> {
+                        for (var controller : controllers) {
+                            assertTrue(controller.check("abcdefghijklmnop",
+                                new RateLimitController.CheckRequest("c")).getBody().allowed(),
+                                "Expired registry entries must release capacity");
+                        }
+                    });
             } finally { factory.destroy(); }
         }
     }
