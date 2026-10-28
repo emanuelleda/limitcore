@@ -64,10 +64,19 @@
             "context": "authenticated-redis"
           },
           {
-            "context": "load-baseline"
+            "context": "load-baseline (fixed-window)"
+          },
+          {
+            "context": "load-baseline (token-bucket)"
+          },
+          {
+            "context": "load-baseline (sliding-window)"
           },
           {
             "context": "dependency-audit"
+          },
+          {
+            "context": "sonar"
           }
         ]
       }

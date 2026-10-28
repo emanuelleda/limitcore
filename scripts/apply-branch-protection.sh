@@ -15,12 +15,24 @@ if gh api "repos/$REPO/rulesets" --jq '.[] | .name' | grep -Fxq "$RULE_NAME"; th
 fi
 
 # Report missing workflow definitions before enforcing required checks.
-for workflow in ci.yml security.yml smoke.yml sentinel.yml production-tls.yml load-validation.yml; do
+for workflow in ci.yml security.yml sonar.yml smoke.yml sentinel.yml production-tls.yml load-validation.yml; do
   gh api "repos/$REPO/actions/workflows/$workflow" --jq .id >/dev/null || {
     echo "Missing required workflow: $workflow"
     exit 1
   }
 done
+
+# Ensure required contexts match *actual* GitHub check-run names.
+# A k6 matrix publishes three separate load-baseline checks.
+main_sha="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+check_runs="$(gh api --method GET "repos/$REPO/commits/$main_sha/check-runs" -f per_page=100)"
+while IFS= read -r context; do
+  if ! jq -e --arg context "$context" '[.check_runs[] | .name] | index($context) != null' <<< "$check_runs" >/dev/null; then
+    echo "Required status context missing from main SHA $main_sha: $context" >&2
+    echo "Ensure checks have run and the names in the ruleset are correct." >&2
+    exit 1
+  fi
+done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context' docs/github-ruleset-main.json)
 
 echo "Creating active ruleset for main using the administrator's GitHub identity..."
 gh api -X POST "repos/$REPO/rulesets" \
