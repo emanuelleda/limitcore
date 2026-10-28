@@ -4,6 +4,7 @@ on:
     tags:
       - 'v*'
 permissions:
+  actions: read
   contents: write
 jobs:
   release:
@@ -19,6 +20,10 @@ jobs:
             echo "::error::Releases devem referenciar commits da main"
             exit 1
           }
+      - name: Require successful checks on the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/verify-release-checks.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
