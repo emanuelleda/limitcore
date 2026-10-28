@@ -88,7 +88,7 @@ class RateLimitControllerTest {
     @Test void rejectsInvalidActiveKeyLimit() {
         assertThrows(IllegalArgumentException.class, () ->
             new RateLimitController(mock(StringRedisTemplate.class), "secret", 10, 60,
-                "fixed-window", "", "", 0));
+                "fixed-window", "", "", 0, "identifier"));
     }
     @Test void acceptsBothSecretsDuringStagedRotation() {
         var redis = mock(StringRedisTemplate.class);
