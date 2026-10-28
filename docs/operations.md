@@ -8,7 +8,7 @@ O repositório inclui configurações opcionais do Prometheus e Jaeger em `monit
 
 ## Indisponibilidade do Redis
 
-O LimitCore não concede uma decisão positiva quando não consegue consultar o Redis. A API pode retornar erro HTTP 5xx ou sofrer *timeout*, de acordo com a falha de rede. Os tempos limites padrão de conexão e comando são `2s`, configuráveis via `REDIS_CONNECT_TIMEOUT` e `REDIS_COMMAND_TIMEOUT`. Os consumidores precisam tratar esse resultado como falha ou decisão desconhecida, seguindo sua política de segurança.
+O LimitCore não concede uma decisão positiva quando não consegue consultar o Redis. A API retorna HTTP 503 quando a indisponibilidade é representada por uma exceção de acesso aos dados, ou pode sofrer *timeout* de transporte, de acordo com a falha de rede. Os tempos limites padrão de conexão e comando são `2s`, configuráveis via `REDIS_CONNECT_TIMEOUT` e `REDIS_COMMAND_TIMEOUT`. Os consumidores precisam tratar esse resultado como falha ou decisão desconhecida, seguindo sua política de segurança.
 
 ## Troca de primário e recuperação
 
@@ -16,7 +16,13 @@ Scripts Lua são atômicos no primário em que são executados. A replicação a
 
 ## Teste automatizado de falha e recuperação
 
-O workflow `API Smoke and Redis Recovery` executa um teste curto de k6 e derruba temporariamente o contêiner Redis. Ele exige resposta 5xx ou indisponibilidade de transporte durante a falha e HTTP 200 após o serviço reiniciar. Esse teste verifica **parada e retorno de um nó**, não replicação, Sentinel, Cluster, persistência de contadores nem perda de comandos após eleição de primário.
+O workflow `API Smoke and Redis Recovery` executa um teste curto de k6 e derruba temporariamente o contêiner Redis. Ele exige resposta 5xx ou indisponibilidade de transporte durante a falha e HTTP 200 após o serviço reiniciar. Esse teste verifica **parada e retorno de um nó**, não eleições Sentinel/Cluster, persistência de contadores nem perda de comandos após eleição de primário. O workflow **Redis Sentinel Failover** é separado e exercita dois nós Redis com três votantes Sentinel em CI, derruba o primário e verifica promoção e reconexão da API. Isso ainda não certifica a topologia de produção.
+
+## Health, métricas e alertas
+
+Use `/actuator/health/liveness` para verificar a saúde da JVM e `/actuator/health/readiness` para avaliar a disponibilidade da API **junto ao Redis**. A indisponibilidade do Redis torna readiness 503, sem provocar reinícios contínuos pelo liveness.
+
+O Prometheus carrega `monitoring/alerts.yml` com alertas de serviço indisponível, 5xx, latência p95 e falhas de autenticação. As métricas `limitcore_decisions_total` usam apenas tags fixas `algorithm` e `outcome`, sem tenant nem identificadores. A notificação externa via Alertmanager requer integração e validação próprias. O dashboard Grafana foi atualizado com decisões e disponibilidade.
 
 ## Traces locais
 
