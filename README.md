@@ -174,10 +174,11 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 | `REDIS_CONNECT_TIMEOUT` | `2s` | Tempo limite de conexão com Redis |
 | `REDIS_COMMAND_TIMEOUT` | `2s` | Tempo limite das operações Redis |
 | `LIMITCORE_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Coletor de traces OTLP |
-| `LIMITCORE_TRACING_SAMPLE_RATE` | `0.1` | Probabilidade de amostragem de traces |
+| `LIMITCORE_TRACING_SAMPLE_RATE` | `0.1` (desenvolvimento) / `0` (produção) | Probabilidade de amostragem de traces |
 | `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
 | `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
 | `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
+| `REDIS_SSL_ENABLED` | `true` em produção | Exige conexão TLS ao Redis no perfil de produção |
 | `REDIS_HOST` | `localhost` | Servidor Redis |
 | `REDIS_PORT` | `6379` | Porta Redis |
 
@@ -192,7 +193,7 @@ Para iniciar um coletor Jaeger local e visualizar traces em http://localhost:166
 docker compose -f monitoring/compose.yaml up -d jaeger
 ```
 
-A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. Esse teste é um exercício de **parada/reinício**, não uma certificação de *failover* Sentinel/Cluster ou de capacidade produtiva.
+A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. O teste de parada/reinício não substitui failover. O workflow **Redis Sentinel Failover** simula separadamente a eleição de um primário com três sentinels e valida a reconexão da API; ambos ainda exigem reprodução no ambiente de produção.
 
 ## 🛡️ Perfil de produção e segurança
 
