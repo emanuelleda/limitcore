@@ -10,9 +10,9 @@
 - Resposta HTTP 503 sem decisão positiva diante de indisponibilidade Redis; `allowed=false` continua retornando HTTP 200.
 - `SPRING_PROFILES_ACTIVE=production` obriga credenciais API de pelo menos 32 bytes, TLS Redis e senha Redis de pelo menos 16 bytes, limita threads/conexões, habilita desligamento gracioso e desativa amostragem de traces por padrão.
 - Probes `/actuator/health/liveness` (não depende de Redis) e `/actuator/health/readiness` (depende de Redis).
-- Testes unitários, integração Testcontainers, concorrência e quota, k6 smoke, parada/reinício Redis e simulação de failover Sentinel com três sentinels e dois nós Redis no CI.
+- Testes unitários, integração Testcontainers, concorrência e quota, k6 smoke, perfil `production` com Redis TLS/senha e recuperação, parada/reinício Redis e simulação de failover Sentinel com três sentinels e dois nós Redis no CI.
 - Cobertura JaCoCo com limite mínimo de linhas, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
-- Workflow para publicar imagem GHCR por tag versionada, com scan anterior ao push, SBOM e provenance. **Publicação real por tag ainda não foi executada.**
+- Workflow para publicar imagem GHCR por tag versionada, com scan anterior ao push, SBOM, provenance, Quality Gate SonarQube e exigência de cinco workflows aprovados no SHA da release. **Publicação real por tag ainda não foi executada.**
 - Referência de K8s com réplicas, liveness/readiness, PDB, HPA, UID fixo, sistema de arquivos somente leitura e imagem por digest. **Não foi implantada.**
 - Prometheus e regras de alerta para indisponibilidade, erro, p95 e autenticação. **Alertmanager e canais de notificação precisam ser conectados.**
 
@@ -20,7 +20,7 @@
 
 | Critério | Verificação necessária |
 | --- | --- |
-| CI, CodeQL, smoke, Sentinel e imagem | Todos verdes no SHA candidato, com artefatos retidos |
+| CI, CodeQL, smoke, Sentinel, Redis TLS autenticado e imagem | Todos verdes no SHA candidato, com artefatos retidos |
 | Trivy e dependências | Nenhum alerta HIGH/CRITICAL corrigível; demais riscos documentados |
 | SonarQube | Token e organização conectados; Quality Gate efetivamente aprovado; releases agora bloqueadas quando a integração não estiver configurada |
 | Dependency Review | Dependency Graph habilitado; checagem operante em pull request |
@@ -61,5 +61,5 @@ Consulte [execução de carga](load-testing.md), [operações e incidentes](oper
 ## Estado dos controles externos
 
 - **GitHub Rulesets/branch protection:** a `main` não estava protegida na auditoria deste ciclo. É necessário configurá-la em **Settings → Rules → Rulesets** (ou Branch protection) e exigir revisões e checks de PR. O acesso da integração usada nesta auditoria não permite alterar regras administrativas.
-- **SonarQube:** o workflow contínuo permanece `skipped` enquanto faltarem credenciais/variáveis; release e publicação de imagens passam a falhar explicitamente sem Quality Gate.
+- **SonarQube:** o workflow contínuo permanece `skipped` enquanto faltarem credenciais/variáveis; release e publicação de imagens passam a falhar explicitamente sem Quality Gate. Além disso, os workflows de release verificam no GitHub que CI, segurança, smoke, Sentinel e TLS de produção foram aprovados para o mesmo commit.
 - **Infraestrutura real:** não há evidência de cluster Redis TLS com HA, cofre de segredos, ingress TLS, restauração de backup, destinatários de alertas e testes de carga representativos conectados a este repositório. Não deduza aprovação desses controles a partir de um workflow verde.
