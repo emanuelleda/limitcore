@@ -164,7 +164,7 @@ mvn verify
 
 O pipeline inclui **testes unitários**, **testes de integração com Redis** e um **cenário de concorrência** para janela fixa. Os workflows de CI e segurança ficam disponíveis na aba [Actions](https://github.com/emanuelleda/limitcore/actions).
 
-O workflow **Load Baseline Evidence** executa um teste k6 controlado com métricas p95/p99, taxa de requisições e erros. A configuração, o SHA e o JSON de resultados são preservados por 30 dias como artefatos, e o gate de release exige esse teste aprovado no commit versionado. Essa medição em runner local não equivale a um benchmark de produção.
+O workflow **Load Baseline Evidence** executa uma matriz de três testes k6 (Fixed Window, Token Bucket e Sliding Window) com métricas p95/p99, taxa de requisições e erros. A configuração, o SHA e o JSON de resultados são preservados por 30 dias como artefatos, e o gate de release exige esse teste aprovado no commit versionado. Essa medição em runner local não equivale a um benchmark de produção.
 
 O workflow **Security** também possui um `dependency-audit` obrigatório via Trivy que funciona sem o Dependency Graph; a revisão nativa do GitHub continua dependendo de sua habilitação.
 
