@@ -35,3 +35,15 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
           if-no-files-found: ignore
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application image
+        run: docker build --pull -t limitcore:ci .
+      - name: Verify non-root runtime and memory limits
+        run: |
+          user="$(docker inspect -f '{{.Config.User}}' limitcore:ci)"
+          test "$user" = 10001
+          docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' limitcore:ci | grep -q 'MaxRAMPercentage=75'
