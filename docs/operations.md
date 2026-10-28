@@ -42,6 +42,7 @@ A troca de escopo muda o identificador do contador Redis, portanto pode reinicia
 
 - Armazene `LIMITCORE_API_KEY` em um gerenciador de segredos.
 - Utilize HTTPS na entrada da aplicação.
+- No perfil `production`, forneça `REDIS_PASSWORD` com pelo menos 16 bytes UTF-8 e habilite TLS (`REDIS_SSL_ENABLED=true`); a aplicação deve falhar no startup caso contrário. Prefira usuário ACL com permissões mínimas, segregação de rede e cofres de segredos.
 - Restrinja o acesso ao Redis e aos endpoints administrativos.
 - Prefira credenciais distintas por tenant; use `LIMITCORE_TENANTS="tenant=chaveAntiga|chaveNova"` para rotação gradual e remova a chave antiga por configuração/novo deploy.
 - Use `LIMITCORE_MAX_ACTIVE_KEYS` de acordo com a cardinalidade esperada; ele controla a quantidade de chaves ativas por tenant e pode negar clientes novos quando esgotado.
