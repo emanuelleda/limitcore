@@ -68,6 +68,9 @@
           },
           {
             "context": "dependency-audit"
+          },
+          {
+            "context": "sonar"
           }
         ]
       }
