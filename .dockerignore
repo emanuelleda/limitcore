@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.env
+.env.*
+*.log
+target
+.idea
+.vscode
+docs
+benchmarks
+monitoring
+scripts
+README.md
+CONTRIBUTING.md
+SECURITY.md

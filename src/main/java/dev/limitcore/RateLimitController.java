@@ -12,6 +12,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.http.CacheControl;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatus;
@@ -73,8 +76,9 @@ public class RateLimitController {
         return 1
         """, Long.class);
     private final StringRedisTemplate redis;
-    private final String configuredApiKey;
-    private final Map<String,List<String>> tenantKeys;
+    private final byte[] configuredApiKeyDigest;
+    private final Map<String,List<byte[]>> tenantKeyDigests;
+    private volatile MeterRegistry meterRegistry;
     private final int capacity;
     private final int maxActiveKeys;
     private final Map<String,Integer> tenantCapacities;
@@ -91,11 +95,19 @@ public class RateLimitController {
             @Value("${limitcore.tenant-capacities:}") String tenantCapacityConfig,
             @Value("${limitcore.max-active-keys:1000}") int maxActiveKeys) {
         this.redis = redis;
-        this.configuredApiKey = apiKey;
-        this.tenantKeys = parseTenants(tenants);
+        if (apiKey == null || apiKey.length() > 256)
+            throw new IllegalArgumentException("Legacy API credential must not exceed 256 characters");
+        Map<String,List<String>> tenantKeys = parseTenants(tenants);
         if (!apiKey.isBlank() && tenantKeys.values().stream().flatMap(List::stream).anyMatch(apiKey::equals))
             throw new IllegalArgumentException("Legacy and tenant credentials must differ");
-        this.tenantCapacities = parseCapacities(tenantCapacityConfig, this.tenantKeys);
+        this.configuredApiKeyDigest = apiKey.isBlank() ? null : sha256(apiKey.getBytes(StandardCharsets.UTF_8));
+        Map<String,List<byte[]>> hashedKeys = new HashMap<>();
+        for (var entry : tenantKeys.entrySet()) {
+            hashedKeys.put(entry.getKey(), entry.getValue().stream()
+                    .map(value -> sha256(value.getBytes(StandardCharsets.UTF_8))).toList());
+        }
+        this.tenantKeyDigests = Map.copyOf(hashedKeys);
+        this.tenantCapacities = parseCapacities(tenantCapacityConfig, tenantKeys);
         if (capacity < 1 || capacity > 1000000 || windowSeconds < 1 || windowSeconds > 86400)
             throw new IllegalArgumentException("Invalid server-side quota configuration");
         if (!List.of("fixed-window", "token-bucket", "sliding-window").contains(algorithm))
@@ -162,18 +174,31 @@ public class RateLimitController {
         return Map.copyOf(capacities);
     }
 
+    @Autowired
+    public void setMeterRegistry(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+    }
+
+    private void recordDecision(String outcome) {
+        MeterRegistry registry = this.meterRegistry;
+        if (registry != null) {
+            registry.counter("limitcore.decisions", "algorithm", algorithm, "outcome", outcome).increment();
+        }
+    }
+
     private String authenticate(String apiKey) {
-        if (apiKey == null || apiKey.isBlank()) return null;
+        if (apiKey == null || apiKey.isBlank() || apiKey.length() > 256) return null;
         byte[] candidate = sha256(apiKey.getBytes(StandardCharsets.UTF_8));
-        for (var entry : tenantKeys.entrySet()) {
-            for (String secret : entry.getValue()) {
-                if (MessageDigest.isEqual(candidate, sha256(secret.getBytes(StandardCharsets.UTF_8))))
-                    return entry.getKey();
+        String tenant = null;
+        // Compare precomputed fixed-size SHA-256 digests, without an early return.
+        for (var entry : tenantKeyDigests.entrySet()) {
+            for (byte[] digest : entry.getValue()) {
+                if (MessageDigest.isEqual(candidate, digest)) tenant = entry.getKey();
             }
         }
-        if (!configuredApiKey.isBlank() && MessageDigest.isEqual(candidate,
-                sha256(configuredApiKey.getBytes(StandardCharsets.UTF_8)))) return "default";
-        return null;
+        if (configuredApiKeyDigest != null &&
+                MessageDigest.isEqual(candidate, configuredApiKeyDigest)) tenant = "default";
+        return tenant;
     }
 
     private static byte[] sha256(byte[] input) {
@@ -189,7 +214,10 @@ public class RateLimitController {
             @RequestHeader(value="X-API-Key", required=false) String apiKey,
             @Valid @RequestBody CheckRequest request) {
         String tenant = authenticate(apiKey);
-        if (tenant == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (tenant == null) {
+            recordDecision("unauthorized");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).cacheControl(CacheControl.noStore()).build();
+        }
 
         int quota = tenantCapacities.getOrDefault(tenant, capacity);
         long windowMillis = windowSeconds * 1000L;
@@ -209,6 +237,9 @@ public class RateLimitController {
                 String.valueOf(windowMillis), String.valueOf(quota), String.valueOf(maxActiveKeys));
         };
         if (result == null) throw new IllegalStateException("Redis returned no result");
-        return ResponseEntity.ok(new CheckResponse(result == 1L, algorithm));
+        boolean allowed = result == 1L;
+        recordDecision(allowed ? "allowed" : "denied");
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new CheckResponse(allowed, algorithm));
     }
 }

@@ -111,6 +111,39 @@ class RateLimitControllerTest {
             new RateLimitController(mock(StringRedisTemplate.class), "abcdefghijklmnop", 10, 60,
                 "fixed-window", "alpha=abcdefghijklmnop"));
     }
+    @Test void recordsAllowedDeniedAndUnauthenticatedWithoutTenantLabels() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class),
+                any(String.class), any(String.class))).thenReturn(1L, 0L);
+        var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var controller = controller(redis, "fixed-window");
+        controller.setMeterRegistry(registry);
+        controller.check("secret", new RateLimitController.CheckRequest("user-1"));
+        controller.check("secret", new RateLimitController.CheckRequest("user-1"));
+        controller.check("invalid", new RateLimitController.CheckRequest("user-1"));
+        assertEquals(1, registry.get("limitcore.decisions")
+            .tag("algorithm", "fixed-window").tag("outcome", "allowed").counter().count());
+        assertEquals(1, registry.get("limitcore.decisions")
+            .tag("algorithm", "fixed-window").tag("outcome", "denied").counter().count());
+        assertEquals(1, registry.get("limitcore.decisions")
+            .tag("algorithm", "fixed-window").tag("outcome", "unauthorized").counter().count());
+        for (var meter : registry.getMeters()) {
+            assertFalse(meter.getId().getTags().stream()
+                .anyMatch(tag -> tag.getKey().equals("tenant") || tag.getKey().equals("key")));
+        }
+    }
+    @Test void rejectsLongApiKeyBeforeAnyRedisCall() {
+        var redis = mock(StringRedisTemplate.class);
+        var controller = controller(redis, "fixed-window");
+        assertEquals(401, controller.check("x".repeat(257),
+            new RateLimitController.CheckRequest("key")).getStatusCode().value());
+        verifyNoInteractions(redis);
+    }
+    @Test void rejectsOversizedLegacySecretAtStartup() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class),
+                "x".repeat(257), 10, 60, "fixed-window"));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }

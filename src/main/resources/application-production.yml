@@ -1,0 +1,37 @@
+# Ative explicitamente com SPRING_PROFILES_ACTIVE=production.
+# Produção exige credenciais e Redis TLS (validados no startup).
+spring:
+  data:
+    redis:
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+server:
+  shutdown: graceful
+  max-http-request-header-size: 8KB
+  tomcat:
+    connection-timeout: 5s
+    threads:
+      max: ${LIMITCORE_TOMCAT_MAX_THREADS:100}
+    accept-count: ${LIMITCORE_TOMCAT_ACCEPT_COUNT:100}
+    max-connections: ${LIMITCORE_TOMCAT_MAX_CONNECTIONS:1000}
+management:
+  tracing:
+    sampling:
+      # No tracing traffic leaves the pod before an authenticated OTLP collector is configured.
+      probability: ${LIMITCORE_TRACING_SAMPLE_RATE:0}
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis
+  endpoints:
+    web:
+      exposure:
+        include: health,info

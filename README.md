@@ -9,7 +9,7 @@
 [![CI](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml)
 [![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.2-6DB33F?logo=springboot&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-Lua-DC382D?logo=redis&logoColor=white)
 ![MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-2563EB)
 
@@ -31,7 +31,7 @@ O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** g
 | Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
 > [!IMPORTANT]
-> **Projeto em evolução.** Há testes automatizados e verificações de segurança, mas ainda são necessárias validações representativas de carga, *failover* real, segurança e operação antes de declarar prontidão para produção.
+> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, conexão do SonarQube, provisão de segredos e revisão operacional. [Checklist de produção](docs/production-readiness.md).
 
 ## 🏗️ Arquitetura
 
@@ -70,7 +70,7 @@ Todos usam scripts Lua para manter a operação atômica em um primário Redis. 
 - **Limite de identificadores ativos:** por padrão, até `1.000` chaves lógicas ativas por tenant (`LIMITCORE_MAX_ACTIVE_KEYS`). A admissão e a operação da quota ocorrem no mesmo script Lua, sem corrida entre instâncias.
 - **Expiração automática:** registros deixam de ocupar o limite depois da janela configurada. Quando o limite de identificadores é atingido, a API retorna `allowed: false` (não é uma falha HTTP).
 - **Compatibilidade de cluster:** o estado de cada tenant usa uma *hash tag* comum para scripts multichave. O custo é concentrar a carga daquele tenant em um único slot.
-- **Rotação gradual:** `LIMITCORE_TENANTS="alpha=segredoAntigo|segredoNovo"` aceita temporariamente duas credenciais. Retire a antiga e reinicie as instâncias após a migração. As credenciais precisam ter pelo menos 16 caracteres e não podem ser reutilizadas entre tenants.
+- **Rotação gradual:** `LIMITCORE_TENANTS="alpha=segredoAntigo|segredoNovo"` aceita temporariamente duas credenciais. Retire a antiga e reinicie as instâncias após a migração. Em desenvolvimento, as credenciais precisam ter pelo menos 16 caracteres; **no perfil de produção, são obrigatórios no mínimo 32 bytes UTF-8 por credencial**, gerados aleatoriamente. As credenciais não podem ser reutilizadas entre tenants.
 
 > [!WARNING]
 > **Migração do formato Redis:** esta implementação altera o padrão das chaves. Ao migrar da versão anterior, quotas em andamento são reiniciadas; programe a implantação para evitar decisões inesperadas durante a troca.
@@ -145,13 +145,13 @@ Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa 
 
 | Camada | Tecnologias |
 | --- | --- |
-| **Backend** | Java 25, Spring Boot 3.5 |
+| **Backend** | Java 25, Spring Boot 4.1.2 |
 | **Estado distribuído** | Redis, scripts Lua |
 | **Testes** | JUnit, Mockito, Testcontainers |
 | **Build e infraestrutura** | Maven, Docker, Docker Compose |
 | **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
-| **Qualidade** | JaCoCo, configuração SonarQube |
-| **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer Tracing, k6 |
+| **Qualidade** | JaCoCo com cobertura mínima, Trivy, configuração SonarQube |
+| **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer/OTLP, k6, Sentinel |
 
 ## 🧪 Testes e integração contínua
 
@@ -174,10 +174,11 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 | `REDIS_CONNECT_TIMEOUT` | `2s` | Tempo limite de conexão com Redis |
 | `REDIS_COMMAND_TIMEOUT` | `2s` | Tempo limite das operações Redis |
 | `LIMITCORE_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Coletor de traces OTLP |
-| `LIMITCORE_TRACING_SAMPLE_RATE` | `0.1` | Probabilidade de amostragem de traces |
+| `LIMITCORE_TRACING_SAMPLE_RATE` | `0.1` (desenvolvimento) / `0` (produção) | Probabilidade de amostragem de traces |
 | `LIMITCORE_ALGORITHM` | `fixed-window` | Algoritmo selecionado |
 | `LIMITCORE_CAPACITY` | `100` | Capacidade máxima |
 | `LIMITCORE_WINDOW_SECONDS` | `60` | Período de referência |
+| `REDIS_SSL_ENABLED` | `true` em produção | Exige conexão TLS ao Redis no perfil de produção |
 | `REDIS_HOST` | `localhost` | Servidor Redis |
 | `REDIS_PORT` | `6379` | Porta Redis |
 
@@ -192,12 +193,22 @@ Para iniciar um coletor Jaeger local e visualizar traces em http://localhost:166
 docker compose -f monitoring/compose.yaml up -d jaeger
 ```
 
-A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. Esse teste é um exercício de **parada/reinício**, não uma certificação de *failover* Sentinel/Cluster ou de capacidade produtiva.
+A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. O teste de parada/reinício não substitui failover. O workflow **Redis Sentinel Failover** simula separadamente a eleição de um primário com três sentinels e valida a reconexão da API; ambos ainda exigem reprodução no ambiente de produção.
+
+## 🛡️ Perfil de produção e segurança
+
+Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200).
+
+A cobertura mínima de linhas é exigida pelo Maven, o CI constrói a imagem não-root e o Trivy bloqueia vulnerabilidades altas/críticas corrigíveis. Há testes adicionais de eleição de primário Redis Sentinel, mas isso não comprova um SLA real em produção.
+
+Consulte o [guia de prontidão para produção](docs/production-readiness.md) e a [referência Kubernetes](deploy/k8s/README.md). O workflow de publicação versionada no GHCR está preparado, mas depende de uma tag de release e confirmação dos resultados.
 
 ## 📚 Documentação
 
 | Documento | Conteúdo |
 | --- | --- |
+| [🛡️ Produção](docs/production-readiness.md) | Checklist de segurança, disponibilidade e liberação |
+| [📦 Kubernetes](deploy/k8s/README.md) | Implantação de referência, segredos e rollback |
 | [🏗️ Arquitetura](docs/architecture.md) | Componentes, fluxo e garantias |
 | [🧠 Algoritmos](docs/algorithms.md) | Fixed Window, Token Bucket e Sliding Window |
 | [📘 Contrato OpenAPI](docs/openapi.yaml) | Endpoint, autenticação e respostas |
@@ -223,10 +234,13 @@ A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Sm
 - [x] Ponte Micrometer Tracing com OpenTelemetry
 - [x] Exportador OTLP e Jaeger local
 - [x] Teste automatizado de parada/reinício do Redis
-- [ ] Validação de failover Sentinel/Cluster e correlação distribuída ponta a ponta
+- [x] Simulação de eleição Redis Sentinel em CI com 3 votantes
+- [ ] Failover e correlação distribuída validados na topologia de produção
 - [x] Workflow opcional SonarQube e benchmark de fumaça k6
+- [x] Scanner Trivy e gate mínimo de cobertura no CI
+- [x] Perfil seguro de produção, probes e modelo de implantação Kubernetes
 - [ ] SonarQube conectado e benchmark de carga representativa validado
-- [ ] Auditoria e revisão operacional para produção
+- [ ] Revisão de segurança independente, GHCR release validado e revisão operacional antes de produção
 
 ---
 
