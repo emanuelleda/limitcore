@@ -94,16 +94,16 @@ if [[ ! -s "$OUTPUT_DIR/k6-summary.json" ]]; then
 fi
 
 jq -e '
-  (.metrics.http_reqs.values.count > 0)
-  and (.metrics.http_req_duration.values["p(95)"] >= 0)
-  and (.metrics.http_req_duration.values["p(99)"] >= 0)
+  (.metrics.http_reqs.count > 0)
+  and (.metrics.http_req_duration["p(95)"] >= 0)
+  and (.metrics.http_req_duration["p(99)"] >= 0)
 ' "$OUTPUT_DIR/k6-summary.json" >/dev/null
 
 jq -r '
-  "HTTP requests: \(.metrics.http_reqs.values.count)",
-  "Request rate: \(.metrics.http_reqs.values.rate) req/s",
-  "p95: \(.metrics.http_req_duration.values["p(95)"]) ms",
-  "p99: \(.metrics.http_req_duration.values["p(99)"]) ms"
+  "HTTP requests: \(.metrics.http_reqs.count)",
+  "Request rate: \(.metrics.http_reqs.rate) req/s",
+  "p95: \(.metrics.http_req_duration["p(95)"]) ms",
+  "p99: \(.metrics.http_req_duration["p(99)"]) ms"
 ' "$OUTPUT_DIR/k6-summary.json"
 
 if [[ "$result" -ne 0 ]]; then
