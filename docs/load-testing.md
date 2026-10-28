@@ -19,7 +19,7 @@ O workflow `Redis Sentinel Failover` configura um primário e uma réplica Redis
 
 ## Benchmark controlado no CI (evidência reproduzível)
 
-O workflow [Load Baseline Evidence](https://github.com/emanuelleda/limitcore/actions/workflows/load-validation.yml) roda o k6 automaticamente em PRs, na `main` e semanalmente. O cenário fixo usa 20 VUs por 30 segundos, 100 identificadores, Token Bucket e um Redis no próprio runner. Ele exige checks acima de 99%, menos de 1% de falhas HTTP e p95 abaixo de 1.000 ms **nesse runner**, registrando p95/p99, throughput e comportamento de permissões.
+O workflow [Load Baseline Evidence](https://github.com/emanuelleda/limitcore/actions/workflows/load-validation.yml) roda o k6 automaticamente em PRs, na `main` e semanalmente. A matriz executa **cada um dos três algoritmos** (Fixed Window, Token Bucket e Sliding Window) isoladamente, com 20 VUs por 30 segundos, 100 identificadores e um Redis local no próprio runner. Ele exige checks acima de 99%, menos de 1% de falhas HTTP e p95 abaixo de 1.000 ms **nesse runner**, registrando p95/p99, throughput e comportamento de permissões.
 
 Os artefatos `load-baseline-evidence` preservam por 30 dias `configuration.json` (SHA, algoritmo, limites e topologia), `k6-summary.json` (métricas p95/p99 e requisições) e `k6-console.log`. Falhas de threshold bloqueiam o workflow e a release; falhas de parse de evidência também bloqueiam. Nenhum segredo é incluído no artefato.
 
