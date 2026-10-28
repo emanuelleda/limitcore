@@ -23,7 +23,7 @@
 
 O **LimitCore** é uma API REST open source para **rate limiting distribuído**. Ela permite que sistemas consultem se uma requisição pode ser aceita conforme uma quota definida no servidor.
 
-O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis. A configuração opcional `LIMITCORE_TENANTS` permite autenticação por tenant e isolamento dos contadores; capacidades distintas podem ser configuradas por tenant; o período e o algoritmo ainda são globais.
+O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** garantem operações atômicas no primário. A API pode ser executada em múltiplas instâncias conectadas ao mesmo Redis. A configuração opcional `LIMITCORE_TENANTS` permite autenticação por tenant e isolamento dos contadores; capacidades distintas podem ser configuradas por tenant; o período e o algoritmo ainda são globais. **Em produção, as quotas são por tenant por padrão**, para que um chamador não contorne os limites escolhendo um novo identificador.
 
 | 🔐 Segurança inicial | ⚙️ Consistência | 🧪 Qualidade | 📈 Observabilidade |
 | :---: | :---: | :---: | :---: |
@@ -171,6 +171,7 @@ A configuração do SonarQube está preparada, mas uma análise conectada e seu 
 | `LIMITCORE_TENANTS` | Vazio | Credenciais opcionais por tenant no formato `tenant=segredo,tenant2=segredo2` |
 | `LIMITCORE_TENANT_CAPACITIES` | Vazio | Capacidades opcionais por tenant: `tenant=20,tenant2=100` (mesmo período global) |
 | `LIMITCORE_MAX_ACTIVE_KEYS` | `1000` | Máximo de identificadores ativos por tenant (1–100.000) |
+| `LIMITCORE_KEY_SCOPE` | `identifier` (desenvolvimento) / `tenant` (produção) | `tenant` ignora o identificador fornecido para a quota, evitando bypass. `identifier` exige um chamador confiável que atribua identidades estáveis. |
 | `REDIS_CONNECT_TIMEOUT` | `2s` | Tempo limite de conexão com Redis |
 | `REDIS_COMMAND_TIMEOUT` | `2s` | Tempo limite das operações Redis |
 | `LIMITCORE_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | Coletor de traces OTLP |
@@ -197,7 +198,7 @@ A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Sm
 
 ## 🛡️ Perfil de produção e segurança
 
-Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200).
+Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis, incluindo uma decisão nula, geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200). **Atenção:** o modo `tenant` compartilha um limite entre todas as identidades de um mesmo cliente. Somente use `LIMITCORE_KEY_SCOPE=identifier` para quotas por usuário quando a identidade for atribuída por um serviço confiável e não puder ser escolhida livremente pelo consumidor.
 
 A cobertura mínima de linhas é exigida pelo Maven, o CI constrói a imagem não-root e o Trivy bloqueia vulnerabilidades altas/críticas corrigíveis. Há testes adicionais de eleição de primário Redis Sentinel, mas isso não comprova um SLA real em produção.
 

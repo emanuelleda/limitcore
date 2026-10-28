@@ -32,6 +32,12 @@ Execute `docker compose -f monitoring/compose.yaml up -d jaeger`, inicie o Limit
 
 O controle de cardinalidade usa novas *hash tags* Redis por tenant. **A implantação dessa versão reinicia quotas em andamento**, pois as chaves anteriores não são migradas. Não misture versões antigas e novas por períodos longos: elas não compartilharão os mesmos contadores. Planeje janela de mudança, testes de retorno, observação do Redis e procedimento de rollback.
 
+## Identidade e escopo da quota
+
+O perfil `production` utiliza `LIMITCORE_KEY_SCOPE=tenant` por padrão. O campo `key` continua validado, mas não abre uma quota própria: todas as requisições autenticadas do mesmo tenant compartilham o limite. Para quotas por usuário, configure `LIMITCORE_KEY_SCOPE=identifier` apenas quando a aplicação chamadora atribuir a identidade a partir de um contexto autenticado e não aceitar uma chave livremente definida pelo consumidor final.
+
+A troca de escopo muda o identificador do contador Redis, portanto pode reiniciar quotas atuais. Programe a implantação, teste a transição em staging e monitore recusas e carga.
+
 ## Segurança operacional
 
 - Armazene `LIMITCORE_API_KEY` em um gerenciador de segredos.

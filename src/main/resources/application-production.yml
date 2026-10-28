@@ -1,5 +1,9 @@
 # Ative explicitamente com SPRING_PROFILES_ACTIVE=production.
 # Produção exige credenciais e Redis TLS (validados no startup).
+limitcore:
+  # No perfil de produção, não confie no identificador escolhido pelo consumidor.
+  # Em integrações internas confiáveis, é possível escolher explicitamente 'identifier'.
+  key-scope: ${LIMITCORE_KEY_SCOPE:tenant}
 spring:
   data:
     redis:

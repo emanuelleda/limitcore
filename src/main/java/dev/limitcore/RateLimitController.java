@@ -84,6 +84,7 @@ public class RateLimitController {
     private final Map<String,Integer> tenantCapacities;
     private final int windowSeconds;
     private final String algorithm;
+    private final String keyScope;
 
     @org.springframework.beans.factory.annotation.Autowired
     public RateLimitController(StringRedisTemplate redis,
@@ -93,7 +94,8 @@ public class RateLimitController {
             @Value("${limitcore.algorithm:fixed-window}") String algorithm,
             @Value("${limitcore.tenants:}") String tenants,
             @Value("${limitcore.tenant-capacities:}") String tenantCapacityConfig,
-            @Value("${limitcore.max-active-keys:1000}") int maxActiveKeys) {
+            @Value("${limitcore.max-active-keys:1000}") int maxActiveKeys,
+            @Value("${limitcore.key-scope:identifier}") String keyScope) {
         this.redis = redis;
         if (apiKey == null || apiKey.length() > 256)
             throw new IllegalArgumentException("Legacy API credential must not exceed 256 characters");
@@ -116,6 +118,9 @@ public class RateLimitController {
             throw new IllegalArgumentException("Sliding window capacity must not exceed 10000");
         if (maxActiveKeys < 1 || maxActiveKeys > 100000)
             throw new IllegalArgumentException("Invalid maximum active keys configuration");
+        if (!List.of("identifier", "tenant").contains(keyScope))
+            throw new IllegalArgumentException("Unsupported key scope");
+        this.keyScope = keyScope;
         this.maxActiveKeys = maxActiveKeys;
         this.capacity = capacity;
         this.windowSeconds = windowSeconds;
@@ -124,17 +129,24 @@ public class RateLimitController {
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, "", "", 1000);
+        this(redis, apiKey, capacity, windowSeconds, algorithm, "", "", 1000, "identifier");
     }
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm, String tenants) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000);
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, "", 1000, "identifier");
     }
 
     public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
             int windowSeconds, String algorithm, String tenants, String tenantCapacities) {
-        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000);
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities, 1000, "identifier");
+    }
+
+    public RateLimitController(StringRedisTemplate redis, String apiKey, int capacity,
+            int windowSeconds, String algorithm, String tenants, String tenantCapacities,
+            int maxActiveKeys) {
+        this(redis, apiKey, capacity, windowSeconds, algorithm, tenants, tenantCapacities,
+                maxActiveKeys, "identifier");
     }
 
     private static Map<String,List<String>> parseTenants(String configuration) {
@@ -224,7 +236,10 @@ public class RateLimitController {
         // All keys for the same tenant share a Redis Cluster hash slot.
         String tenantHash = HexFormat.of().formatHex(sha256(tenant.getBytes(StandardCharsets.UTF_8)));
         String slot = "{" + tenantHash + "}";
-        String keyHash = HexFormat.of().formatHex(sha256(request.key().getBytes(StandardCharsets.UTF_8)));
+        // Production may enforce one shared quota per authenticated tenant. In
+        // identifier mode, the caller-provided identifier MUST be trusted by the caller.
+        String logicalKey = "tenant".equals(keyScope) ? "__tenant_quota__" : request.key();
+        String keyHash = HexFormat.of().formatHex(sha256(logicalKey.getBytes(StandardCharsets.UTF_8)));
         String key = "limitcore:" + slot + ":" + keyHash;
         String registry = "limitcore:" + slot + ":registry";
         Long result = switch (algorithm) {
@@ -236,7 +251,8 @@ public class RateLimitController {
             default -> redis.execute(FIXED_WINDOW, List.of(key, registry),
                 String.valueOf(windowMillis), String.valueOf(quota), String.valueOf(maxActiveKeys));
         };
-        if (result == null) throw new IllegalStateException("Redis returned no result");
+        if (result == null) throw new org.springframework.dao.DataAccessResourceFailureException(
+                "Redis returned no quota decision");
         boolean allowed = result == 1L;
         recordDecision(allowed ? "allowed" : "denied");
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())

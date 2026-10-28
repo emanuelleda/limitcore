@@ -5,6 +5,14 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RedisFailureHandlerTest {
+    @Test void rejectsNullRedisDecisionAsServiceUnavailable() {
+        var handler = new RedisFailureHandler();
+        var response = handler.handleRedisError(
+            new org.springframework.dao.DataAccessResourceFailureException("Redis returned no quota decision"));
+        assertEquals(503, response.getStatusCode().value());
+        assertTrue(response.getHeaders().getCacheControl().contains("no-store"));
+    }
+
     @Test void rejectsOnRedisFailureWithoutLeakingStackTrace() {
         var handler = new RedisFailureHandler();
         var response = handler.handleRedisError(

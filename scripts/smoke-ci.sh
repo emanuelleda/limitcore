@@ -59,6 +59,14 @@ request_status() {
 }
 
 echo "Verifying bounded requests and authentication"
+unauthorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    -X POST http://127.0.0.1:8080/v1/limits/check \
+    -H "Content-Type: application/json" \
+    -d '{"key":"unauthorized"}')"
+if [[ "$unauthorized_status" != 401 ]]; then
+  echo "Expected 401 for missing API credentials; got $unauthorized_status"
+  exit 1
+fi
 status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
     -X POST http://127.0.0.1:8080/v1/limits/check \
     -H "X-API-Key: $LIMITCORE_API_KEY" \
@@ -72,8 +80,8 @@ fi
 echo "Simulating Redis outage"
 docker stop --time 1 "$REDIS_CONTAINER"
 status="$(request_status)"
-if ! [[ "$status" =~ ^5[0-9][0-9]$ || "$status" == "000" ]]; then
-  echo "Expected HTTP 5xx or transport timeout while Redis unavailable; got $status"
+if [[ "$status" != 503 && "$status" != 000 ]]; then
+  echo "Expected HTTP 503 or transport timeout while Redis unavailable; got $status"
   exit 1
 fi
 ready_status="$(curl --silent --output /dev/null --max-time 5 --write-out '%{http_code}' \

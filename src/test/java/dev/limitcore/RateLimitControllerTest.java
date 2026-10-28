@@ -144,6 +144,33 @@ class RateLimitControllerTest {
             new RateLimitController(mock(StringRedisTemplate.class),
                 "x".repeat(257), 10, 60, "fixed-window"));
     }
+    @Test void tenantScopeIgnoresUntrustedClientSelectedKeys() {
+        var redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), any(String.class),
+                any(String.class), any(String.class))).thenReturn(1L);
+        var controller = new RateLimitController(redis, "", 10, 60, "fixed-window",
+            "alpha=abcdefghijklmnop", "", 1000, "tenant");
+        var first = new RateLimitController.CheckRequest("attacker-key-1");
+        var second = new RateLimitController.CheckRequest("attacker-key-2");
+        assertTrue(controller.check("abcdefghijklmnop", first).getBody().allowed());
+        assertTrue(controller.check("abcdefghijklmnop", second).getBody().allowed());
+        var keyLists = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        verify(redis, times(2)).execute(any(RedisScript.class), keyLists.capture(),
+            any(String.class), any(String.class), any(String.class));
+        assertEquals(keyLists.getAllValues().get(0), keyLists.getAllValues().get(1),
+            "Changing a caller-supplied key must not escape tenant-wide limits");
+    }
+    @Test void invalidKeyScopeIsRejectedBeforeServingTraffic() {
+        assertThrows(IllegalArgumentException.class, () ->
+            new RateLimitController(mock(StringRedisTemplate.class), "secret", 10, 60,
+                "fixed-window", "", "", 1000, "unknown"));
+    }
+    @Test void missingRedisDecisionFailsClosedAsServiceUnavailable() {
+        var redis = mock(StringRedisTemplate.class);
+        assertThrows(org.springframework.dao.DataAccessResourceFailureException.class, () ->
+            controller(redis, "fixed-window").check("secret",
+                new RateLimitController.CheckRequest("user-1")));
+    }
     @Test void rejectsInvalidAlgorithm() {
         assertThrows(IllegalArgumentException.class, () -> controller(mock(StringRedisTemplate.class),"unknown"));
     }

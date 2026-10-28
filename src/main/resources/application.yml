@@ -15,6 +15,9 @@ limitcore:
   capacity: ${LIMITCORE_CAPACITY:100}
   window-seconds: ${LIMITCORE_WINDOW_SECONDS:60}
   algorithm: ${LIMITCORE_ALGORITHM:fixed-window}
+  # 'identifier': quota por identidade fornecida por um chamador confiável;
+  # 'tenant': uma quota por tenant, evitando bypass pela troca de 'key'.
+  key-scope: ${LIMITCORE_KEY_SCOPE:identifier}
 management:
   metrics:
     distribution:
