@@ -14,7 +14,7 @@
 4. Execute [SonarQube Actions](https://github.com/emanuelleda/limitcore/actions/workflows/sonar.yml) e confira o **Quality Gate aprovado** no projeto real.
 5. A publicação por tag exige novamente Quality Gate e **falha fechada** se faltarem as configurações.
 
-**Não confirmado:** sem credenciais e organização de SonarQube conectadas, o workflow opcional continua `skipped`. Sua execução não é uma aprovação real.
+**Confirmado em 28/10/2026:** o workflow SonarQube na `main` concluiu com sucesso no SHA `79ccc357` ([evidência](https://github.com/emanuelleda/limitcore/actions/runs/40748495394)). A proteção da branch exigindo Sonar ainda depende da ativação do ruleset (issue #13).
 
 ## 2. Dependency Graph e Dependency Review
 
@@ -28,7 +28,7 @@ Não marque o item nativo como resolvido apenas pelo scanner substituto.
 
 ## 3. Proteger a main sem depender de configurações manuais repetitivas
 
-O repositório inclui o modelo [github-ruleset-main.json](github-ruleset-main.json) e o script [apply-branch-protection.sh](../scripts/apply-branch-protection.sh). O modelo exige PR, revisão de outro colaborador, CI, Trivy, CodeQL, recuperação Redis, Sentinel, TLS e benchmark de carga.
+O repositório inclui o modelo [github-ruleset-main.json](github-ruleset-main.json) e o script [apply-branch-protection.sh](../scripts/apply-branch-protection.sh). O modelo exige PR, revisão de outro colaborador, CI, SonarQube, Trivy, CodeQL, recuperação Redis, Sentinel, TLS e benchmark de carga.
 
 De um terminal local **autenticado como administrador do repositório**:
 
@@ -68,4 +68,4 @@ Apenas após validar 1–4:
 4. Promova primeiro em staging, faça smoke + benchmark + failover, depois rollout gradual com rollback pronto.
 5. Registre a decisão **GO / NO-GO**, responsáveis, evidências e versão realmente operante.
 
-**Estado:** código e CI podem estar verdes; prontidão operacional depende desses passos externos. Issues [#6](https://github.com/emanuelleda/limitcore/issues/6), [#7](https://github.com/emanuelleda/limitcore/issues/7), [#8](https://github.com/emanuelleda/limitcore/issues/8), [#10](https://github.com/emanuelleda/limitcore/issues/10) e [#13](https://github.com/emanuelleda/limitcore/issues/13) acompanham os bloqueios restantes.
+**Estado (28/10/2026):** CI e SonarQube verdes na `main`; ainda falta ativar branch protection e Dependency Review e comprovar staging. Consulte [Go / No-Go](release-go-no-go.md) e o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml). Prontidão operacional depende de evidências externas. Issues [#7](https://github.com/emanuelleda/limitcore/issues/7), [#8](https://github.com/emanuelleda/limitcore/issues/8), [#10](https://github.com/emanuelleda/limitcore/issues/10) e [#13](https://github.com/emanuelleda/limitcore/issues/13) acompanham os bloqueios restantes.
