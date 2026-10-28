@@ -6,7 +6,7 @@ O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Moc
 
 O CI executa ainda o workflow **Load Baseline Evidence**, com k6 para os três algoritmos e relatórios JSON de p95/p99, além de testes do gate de release: checks de workflows não podem ser aproveitados de outros commits nem de execuções anteriores ao último erro.
 
-O JaCoCo exige pelo menos **50% de cobertura de linhas**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
+O JaCoCo exige pelo menos **90% de cobertura de linhas e 75% de cobertura de ramificações**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
 
 ## Segurança e dependências
 
