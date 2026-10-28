@@ -10,6 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Exigir tag derivada da branch principal
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main || {
+            echo "::error::Releases devem referenciar commits da main"
+            exit 1
+          }
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
