@@ -4,15 +4,29 @@ set -Eeuo pipefail
 export LIMITCORE_API_KEY="ci-smoke-key-very-long-and-not-for-production"
 REDIS_CONTAINER="limitcore-redis-smoke"
 APP_LOG="$(mktemp)"
+PREFLIGHT_LOG="$(mktemp)"
 
 cleanup() {
   if [[ -n "${APP_PID:-}" ]]; then kill "$APP_PID" 2>/dev/null || true; fi
   docker rm -f "$REDIS_CONTAINER" >/dev/null 2>&1 || true
-  rm -f "$APP_LOG"
+  rm -f "$APP_LOG" "$PREFLIGHT_LOG"
 }
 trap cleanup EXIT
 
 docker run -d --name "$REDIS_CONTAINER" -p 127.0.0.1:6379:6379 redis:7.4-alpine
+echo "Verifying production profile rejects plaintext Redis"
+if env SPRING_PROFILES_ACTIVE=production REDIS_SSL_ENABLED=false \
+  LIMITCORE_API_KEY="$LIMITCORE_API_KEY" timeout 30s \
+  java -jar target/limitcore-0.1.0-SNAPSHOT.jar >"$PREFLIGHT_LOG" 2>&1; then
+  echo "Production profile incorrectly started with Redis TLS disabled"
+  exit 1
+fi
+if ! grep -q "Production Redis connections must use TLS" "$PREFLIGHT_LOG"; then
+  echo "Production profile failed for an unexpected reason"
+  tail -80 "$PREFLIGHT_LOG"
+  exit 1
+fi
+
 java -jar target/limitcore-0.1.0-SNAPSHOT.jar >"$APP_LOG" 2>&1 &
 APP_PID=$!
 
