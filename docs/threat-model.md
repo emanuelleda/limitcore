@@ -13,6 +13,7 @@
 
 | Ameaça | Impacto | Controle presente | Limitação / ação necessária |
 | --- | --- | --- | --- |
+| Contorno da quota alterando `key` | Um consumidor cria novos identificadores para escapar do limite | Perfil de produção usa `LIMITCORE_KEY_SCOPE=tenant` | O modo `identifier` só é seguro com identidades atribuídas por aplicação confiável |
 | Reutilização ou vazamento de API Key | Acesso indevido à quota | SHA-256 pré-computado e comparação dos digests; credenciais distintas entre tenants | TLS no ingress, cofre, auditoria, revogação por nova configuração e reinício; automatizar rotação |
 | Enumeração de identificadores de quota | Explosão de memória Redis | Identificadores com SHA-256, limite de entradas ativas por tenant e expiração atômica Lua | Capacidade de memória e número de tenants ainda precisam de benchmark; limitar tráfego na borda |
 | Rajadas concorrentes | Ultrapassagem da quota | Redis Lua atômico, testes de concorrência | Failover pode perder estado replicado; não utilizar como mecanismo único de cobrança financeira |
@@ -27,6 +28,7 @@
 
 - 401 para credencial ausente, inválida ou excessivamente longa, sem consulta ao Redis.
 - Um tenant não altera a quota de outro, mesmo quando ambos usam o mesmo identificador.
+- No escopo `tenant`, identificadores distintos devem consumir a mesma quota e ser negados quando ela acabar.
 - Rejeição de novas chaves quando o teto de chaves ativas for alcançado, inclusive sob alta concorrência.
 - Reutilização da mesma chave após expiração legítima do estado.
 - HTTP 503, sem decisão positiva, quando Redis não responder.
