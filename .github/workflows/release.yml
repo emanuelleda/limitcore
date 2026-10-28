@@ -24,6 +24,15 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      - name: Preparar versão imutável
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::A versão deve seguir vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          mvn -B -ntp org.codehaus.mojo:versions-maven-plugin:2.19.1:set \
+            -DnewVersion="$VERSION" -DgenerateBackupPoms=false
       - name: Testar e empacotar
         run: mvn -B -ntp verify
       - name: Gerar SBOM CycloneDX
@@ -33,5 +42,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            target/*.jar target/bom.json target/bom.xml \
+            "target/limitcore-${GITHUB_REF_NAME#v}.jar" target/bom.json target/bom.xml \
             --generate-notes --verify-tag
