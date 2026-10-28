@@ -11,16 +11,26 @@ class ProductionConfigurationValidatorTest {
 
     @Test void rejectsRedisWithoutTls() {
         assertThrows(IllegalStateException.class,
-            () -> new ProductionConfigurationValidator("some-strong-api-key", "", false));
+            () -> new ProductionConfigurationValidator("s".repeat(32), "", false));
+    }
+
+    @Test void rejectsWeakLegacyCredential() {
+        assertThrows(IllegalStateException.class, () ->
+            new ProductionConfigurationValidator("short", "", true));
+    }
+
+    @Test void rejectsWeakTenantCredential() {
+        assertThrows(IllegalStateException.class, () ->
+            new ProductionConfigurationValidator("", "alpha=abcdefghijklmnop", true));
     }
 
     @Test void allowsTenantCredentialsWithTls() {
         assertDoesNotThrow(() -> new ProductionConfigurationValidator("",
-            "alpha=abcdefghijklmnop", true));
+            "alpha=" + "a".repeat(32), true));
     }
 
     @Test void allowsLegacyCredentialWithTls() {
         assertDoesNotThrow(() -> new ProductionConfigurationValidator(
-            "some-strong-api-key", "", true));
+            "s".repeat(32), "", true));
     }
 }
