@@ -1,0 +1,41 @@
+name: Sonar findings diagnostic
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostics:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query actual open SonarQube Cloud issues without logging credentials
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        run: |
+          set -Eeuo pipefail
+          : "${SONAR_TOKEN:?Sonar token not configured}"
+          : "${SONAR_PROJECT_KEY:?Sonar project key not configured}"
+          HOST="${SONAR_HOST_URL:-https://sonarcloud.io}"
+          mkdir -p sonar-findings
+          curl --fail --silent --show-error --retry 2 --max-time 40 \
+            --user "$SONAR_TOKEN:" --get "$HOST/api/issues/search" \
+            --data-urlencode "componentKeys=$SONAR_PROJECT_KEY" \
+            --data-urlencode "resolved=false" \
+            --data-urlencode "ps=500" \
+            --output sonar-findings/response.json
+          jq '{total, issues: [.issues[] | {key, rule, message, component, line, type, severity, impacts, cleanCodeAttribute, flows}]} ' \
+            sonar-findings/response.json > sonar-findings/issues.json
+          rm sonar-findings/response.json
+          jq -r '(.issues|length|tostring) + " open issues collected"' sonar-findings/issues.json
+      - name: Preserve issue details for investigation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-gate-diagnostic
+          path: sonar-findings/issues.json
+          if-no-files-found: ignore
+          retention-days: 2
