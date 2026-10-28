@@ -1,6 +1,6 @@
 # Critérios de prontidão para produção — LimitCore
 
-**Situação:** candidato técnico em validação; **não certificado para implantação produtiva**. CI verde, por si só, não substitui configuração externa, testes de capacidade, recuperação de desastre nem revisão de segurança independente.
+**Situação (28/10/2026):** candidato técnico em validação; **NO-GO para implantação produtiva**. Os sete workflows passaram na `main` no SHA `79ccc357` (incluindo SonarQube), mas ainda faltam controles administrativos e validação da infraestrutura real. CI verde, por si só, não substitui configuração externa, testes de capacidade, recuperação de desastre nem revisão de segurança independente.
 
 ## Implementado ou preparado no repositório
 
@@ -63,5 +63,7 @@ Veja o procedimento detalhado em [Ativação dos controles externos](external-ac
 ## Estado dos controles externos
 
 - **GitHub Rulesets/branch protection:** a `main` não estava protegida na auditoria deste ciclo. É necessário configurá-la em **Settings → Rules → Rulesets** (ou Branch protection) e exigir revisões e checks de PR. O acesso da integração usada nesta auditoria não permite alterar regras administrativas.
-- **SonarQube:** o workflow contínuo permanece `skipped` enquanto faltarem credenciais/variáveis; release e publicação de imagens passam a falhar explicitamente sem Quality Gate. Além disso, os workflows de release verificam no GitHub que CI, segurança, smoke, Sentinel e TLS de produção foram aprovados para o mesmo commit.
+- **SonarQube:** integração configurada, Quality Gate aprovado na `main` no SHA `79ccc357`. O ruleset versionado agora exige o job `sonar`, **mas o ruleset precisa ser ativado por um administrador**. Release e publicação de imagens exigem nova aprovação do gate no SHA final.
 - **Infraestrutura real:** não há evidência de cluster Redis TLS com HA, cofre de segredos, ingress TLS, restauração de backup, destinatários de alertas e testes de carga representativos conectados a este repositório. Não deduza aprovação desses controles a partir de um workflow verde.
+
+Consulte [Go / No-Go](release-go-no-go.md) e o workflow manual **Production Preflight (Repository Controls)** para separar evidências de CI de aprovação operacional.
