@@ -9,7 +9,7 @@
 [![CI](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/ci.yml)
 [![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.2-6DB33F?logo=springboot&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-Lua-DC382D?logo=redis&logoColor=white)
 ![MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-2563EB)
 
@@ -31,7 +31,7 @@ O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** g
 | Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
 > [!IMPORTANT]
-> **Projeto em evolução.** Há testes automatizados e verificações de segurança, mas ainda são necessárias validações representativas de carga, *failover* real, segurança e operação antes de declarar prontidão para produção.
+> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, conexão do SonarQube, provisão de segredos e revisão operacional. [Checklist de produção](docs/production-readiness.md).
 
 ## 🏗️ Arquitetura
 
@@ -145,13 +145,13 @@ Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa 
 
 | Camada | Tecnologias |
 | --- | --- |
-| **Backend** | Java 25, Spring Boot 3.5 |
+| **Backend** | Java 25, Spring Boot 4.1.2 |
 | **Estado distribuído** | Redis, scripts Lua |
 | **Testes** | JUnit, Mockito, Testcontainers |
 | **Build e infraestrutura** | Maven, Docker, Docker Compose |
 | **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
-| **Qualidade** | JaCoCo, configuração SonarQube |
-| **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer Tracing, k6 |
+| **Qualidade** | JaCoCo com cobertura mínima, Trivy, configuração SonarQube |
+| **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer/OTLP, k6, Sentinel |
 
 ## 🧪 Testes e integração contínua
 
@@ -194,10 +194,20 @@ docker compose -f monitoring/compose.yaml up -d jaeger
 
 A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Smoke and Redis Recovery** executa requisições k6 e verifica a indisponibilidade e recuperação da conexão Redis. Esse teste é um exercício de **parada/reinício**, não uma certificação de *failover* Sentinel/Cluster ou de capacidade produtiva.
 
+## 🛡️ Perfil de produção e segurança
+
+Ative `SPRING_PROFILES_ACTIVE=production` somente quando houver **credenciais válidas** e Redis acessível por **TLS**; caso contrário, a aplicação falha na inicialização. O perfil inclui desligamento gracioso e limites de conexão. O endpoint de decisão limita o corpo JSON a **1 KiB** (HTTP 413); falhas de Redis geram resposta **503**; decisões negativas de quota usam `allowed=false` (HTTP 200).
+
+A cobertura mínima de linhas é exigida pelo Maven, o CI constrói a imagem não-root e o Trivy bloqueia vulnerabilidades altas/críticas corrigíveis. Há testes adicionais de eleição de primário Redis Sentinel, mas isso não comprova um SLA real em produção.
+
+Consulte o [guia de prontidão para produção](docs/production-readiness.md) e a [referência Kubernetes](deploy/k8s/README.md). O workflow de publicação versionada no GHCR está preparado, mas depende de uma tag de release e confirmação dos resultados.
+
 ## 📚 Documentação
 
 | Documento | Conteúdo |
 | --- | --- |
+| [🛡️ Produção](docs/production-readiness.md) | Checklist de segurança, disponibilidade e liberação |
+| [📦 Kubernetes](deploy/k8s/README.md) | Implantação de referência, segredos e rollback |
 | [🏗️ Arquitetura](docs/architecture.md) | Componentes, fluxo e garantias |
 | [🧠 Algoritmos](docs/algorithms.md) | Fixed Window, Token Bucket e Sliding Window |
 | [📘 Contrato OpenAPI](docs/openapi.yaml) | Endpoint, autenticação e respostas |
@@ -223,10 +233,13 @@ A instrumentação usa Micrometer Tracing e exportador OTLP. O workflow **API Sm
 - [x] Ponte Micrometer Tracing com OpenTelemetry
 - [x] Exportador OTLP e Jaeger local
 - [x] Teste automatizado de parada/reinício do Redis
-- [ ] Validação de failover Sentinel/Cluster e correlação distribuída ponta a ponta
+- [x] Simulação de eleição Redis Sentinel em CI com 3 votantes
+- [ ] Failover e correlação distribuída validados na topologia de produção
 - [x] Workflow opcional SonarQube e benchmark de fumaça k6
+- [x] Scanner Trivy e gate mínimo de cobertura no CI
+- [x] Perfil seguro de produção, probes e modelo de implantação Kubernetes
 - [ ] SonarQube conectado e benchmark de carga representativa validado
-- [ ] Auditoria e revisão operacional para produção
+- [ ] Revisão de segurança independente, GHCR release validado e revisão operacional antes de produção
 
 ---
 
