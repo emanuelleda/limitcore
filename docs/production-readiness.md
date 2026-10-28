@@ -8,7 +8,7 @@
 - Autenticação por credenciais SHA-256 pré-computadas, limite de corpo JSON de 1 KiB e limite de cabeçalhos no perfil de produção.
 - O perfil de produção usa `LIMITCORE_KEY_SCOPE=tenant` para impedir que um consumidor escape da quota alterando o campo `key`; o modo `identifier` só é seguro com identificadores fornecidos por um serviço confiável.
 - Resposta HTTP 503 sem decisão positiva diante de indisponibilidade Redis; `allowed=false` continua retornando HTTP 200.
-- `SPRING_PROFILES_ACTIVE=production` obriga credenciais API de pelo menos 32 bytes e TLS Redis, limita threads/conexões, habilita desligamento gracioso e desativa amostragem de traces por padrão.
+- `SPRING_PROFILES_ACTIVE=production` obriga credenciais API de pelo menos 32 bytes, TLS Redis e senha Redis de pelo menos 16 bytes, limita threads/conexões, habilita desligamento gracioso e desativa amostragem de traces por padrão.
 - Probes `/actuator/health/liveness` (não depende de Redis) e `/actuator/health/readiness` (depende de Redis).
 - Testes unitários, integração Testcontainers, concorrência e quota, k6 smoke, parada/reinício Redis e simulação de failover Sentinel com três sentinels e dois nós Redis no CI.
 - Cobertura JaCoCo com limite mínimo de linhas, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
