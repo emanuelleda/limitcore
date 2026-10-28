@@ -2,7 +2,7 @@
 
 ## Testes automatizados
 
-O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto cobre concorrência para a janela fixa e registro limitado de identificadores; há testes de isolamento de tenants e expiração de registros no Redis.
+O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto cobre concorrência nos três algoritmos e registro limitado de identificadores; há testes de isolamento de tenants e expiração de registros no Redis.
 
 O JaCoCo exige pelo menos **50% de cobertura de linhas**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
 
@@ -22,7 +22,9 @@ A ação `dependency-review` depende de o **Dependency graph** estar habilitado 
 
 ## Publicação de versões
 
-Os workflows `Release` e `Publish OCI Image` são acionados por tags no formato `v*` de commits pertencentes à `main`. O segundo gera uma imagem GHCR versionada (sem tag `latest`), Trivy antes de publicar, SBOM e proveniência. O workflow `Release` é acionado por tags no formato `v*`. Ele executa `mvn verify`, gera um inventário de componentes de software (SBOM CycloneDX) e tenta publicar o JAR e os arquivos SBOM em uma GitHub Release. A execução de uma publicação real ainda precisa ser verificada antes de considerar a automação validada.
+Os workflows `Release` e `Publish OCI Image` são acionados por tags SemVer no formato `vMAJOR.MINOR.PATCH` que pertençam à `main`. Ambos exigem testes e uma **análise SonarQube conectada com Quality Gate aprovado** (`SONAR_PROJECT_KEY` e `SONAR_TOKEN`). Enquanto essa integração não estiver configurada, uma publicação versionada deve falhar, em vez de prosseguir sem a qualidade exigida.
+
+O workflow `Release` produz JAR com versão sem `SNAPSHOT` igual à tag e inclui um SBOM CycloneDX. `Publish OCI Image` compila a mesma versão para uma imagem GHCR (sem tag `latest`), executa Trivy antes de publicar e inclui SBOM e proveniência. **Esses workflows ainda precisam de um ensaio real por tag**; testes de PR não exercitam a publicação.
 
 ## Critérios para produção
 
