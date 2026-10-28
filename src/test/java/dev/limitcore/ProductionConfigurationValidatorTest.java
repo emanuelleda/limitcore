@@ -6,31 +6,37 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProductionConfigurationValidatorTest {
     @Test void rejectsMissingCredentials() {
         assertThrows(IllegalStateException.class,
-            () -> new ProductionConfigurationValidator("", "", true));
+            () -> new ProductionConfigurationValidator("", "", true, "redis-password"));
     }
 
     @Test void rejectsRedisWithoutTls() {
         assertThrows(IllegalStateException.class,
-            () -> new ProductionConfigurationValidator("s".repeat(32), "", false));
+            () -> new ProductionConfigurationValidator("s".repeat(32), "", false, "redis-password"));
     }
 
     @Test void rejectsWeakLegacyCredential() {
         assertThrows(IllegalStateException.class, () ->
-            new ProductionConfigurationValidator("short", "", true));
+            new ProductionConfigurationValidator("short", "", true, "redis-password"));
     }
 
     @Test void rejectsWeakTenantCredential() {
         assertThrows(IllegalStateException.class, () ->
-            new ProductionConfigurationValidator("", "alpha=abcdefghijklmnop", true));
+            new ProductionConfigurationValidator("", "alpha=abcdefghijklmnop", true, "redis-password"));
+    }
+
+    @Test void rejectsRedisWithoutAuthentication() {
+        var error = assertThrows(IllegalStateException.class, () ->
+            new ProductionConfigurationValidator("s".repeat(32), "", true, ""));
+        assertTrue(error.getMessage().contains("Redis"));
     }
 
     @Test void allowsTenantCredentialsWithTls() {
         assertDoesNotThrow(() -> new ProductionConfigurationValidator("",
-            "alpha=" + "a".repeat(32), true));
+            "alpha=" + "a".repeat(32), true, "redis-password"));
     }
 
     @Test void allowsLegacyCredentialWithTls() {
         assertDoesNotThrow(() -> new ProductionConfigurationValidator(
-            "s".repeat(32), "", true));
+            "s".repeat(32), "", true, "redis-password"));
     }
 }
