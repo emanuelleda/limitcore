@@ -56,3 +56,14 @@ jobs:
           user="$(docker inspect -f '{{.Config.User}}' limitcore:ci)"
           test "$user" = 10001
           docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' limitcore:ci | grep -q 'MaxRAMPercentage=75'
+
+  observability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Prometheus configuration and alert rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.2 \
+            check config /etc/prometheus/prometheus.yml
