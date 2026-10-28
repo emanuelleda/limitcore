@@ -70,7 +70,7 @@ Todos usam scripts Lua para manter a operação atômica em um primário Redis. 
 - **Limite de identificadores ativos:** por padrão, até `1.000` chaves lógicas ativas por tenant (`LIMITCORE_MAX_ACTIVE_KEYS`). A admissão e a operação da quota ocorrem no mesmo script Lua, sem corrida entre instâncias.
 - **Expiração automática:** registros deixam de ocupar o limite depois da janela configurada. Quando o limite de identificadores é atingido, a API retorna `allowed: false` (não é uma falha HTTP).
 - **Compatibilidade de cluster:** o estado de cada tenant usa uma *hash tag* comum para scripts multichave. O custo é concentrar a carga daquele tenant em um único slot.
-- **Rotação gradual:** `LIMITCORE_TENANTS="alpha=segredoAntigo|segredoNovo"` aceita temporariamente duas credenciais. Retire a antiga e reinicie as instâncias após a migração. As credenciais precisam ter pelo menos 16 caracteres e não podem ser reutilizadas entre tenants.
+- **Rotação gradual:** `LIMITCORE_TENANTS="alpha=segredoAntigo|segredoNovo"` aceita temporariamente duas credenciais. Retire a antiga e reinicie as instâncias após a migração. Em desenvolvimento, as credenciais precisam ter pelo menos 16 caracteres; **no perfil de produção, são obrigatórios no mínimo 32 bytes UTF-8 por credencial**, gerados aleatoriamente. As credenciais não podem ser reutilizadas entre tenants.
 
 > [!WARNING]
 > **Migração do formato Redis:** esta implementação altera o padrão das chaves. Ao migrar da versão anterior, quotas em andamento são reiniciadas; programe a implantação para evitar decisões inesperadas durante a troca.
