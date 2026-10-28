@@ -77,6 +77,46 @@ class RedisRateLimitIntegrationTest {
         }
     }
 
+
+    @Test void rotatedCredentialsShareSameTenantQuotaInRedis() {
+        try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+                .withExposedPorts(6379)) {
+            redis.start();
+            var factory = new LettuceConnectionFactory(
+                new RedisStandaloneConfiguration(redis.getHost(), redis.getMappedPort(6379)));
+            factory.afterPropertiesSet();
+            try {
+                var controller = new RateLimitController(new StringRedisTemplate(factory), "",
+                    1, 3600, "fixed-window", "alpha=abcdefghijklmnop|qrstuvwxyzabcdef");
+                var request = new RateLimitController.CheckRequest("shared-identity");
+                assertTrue(controller.check("abcdefghijklmnop", request).getBody().allowed());
+                assertFalse(controller.check("qrstuvwxyzabcdef", request).getBody().allowed(),
+                    "Rotated secrets must not reset tenant quota");
+            } finally { factory.destroy(); }
+        }
+    }
+
+    @Test void tenantSpecificQuotasApplyInRedis() {
+        try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+                .withExposedPorts(6379)) {
+            redis.start();
+            var factory = new LettuceConnectionFactory(
+                new RedisStandaloneConfiguration(redis.getHost(), redis.getMappedPort(6379)));
+            factory.afterPropertiesSet();
+            try {
+                var controller = new RateLimitController(new StringRedisTemplate(factory), "",
+                    10, 3600, "fixed-window",
+                    "alpha=abcdefghijklmnop,beta=qrstuvwxyzabcdef", "alpha=1,beta=2");
+                var request = new RateLimitController.CheckRequest("shared-identity");
+                assertTrue(controller.check("abcdefghijklmnop", request).getBody().allowed());
+                assertFalse(controller.check("abcdefghijklmnop", request).getBody().allowed());
+                assertTrue(controller.check("qrstuvwxyzabcdef", request).getBody().allowed());
+                assertTrue(controller.check("qrstuvwxyzabcdef", request).getBody().allowed());
+                assertFalse(controller.check("qrstuvwxyzabcdef", request).getBody().allowed());
+            } finally { factory.destroy(); }
+        }
+    }
+
     @Test void tenantCountersRemainIsolatedInRealRedis() {
         try (GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
                 .withExposedPorts(6379)) {
