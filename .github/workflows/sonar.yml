@@ -10,7 +10,7 @@ permissions:
 jobs:
   sonar:
     # Never provide organization credentials to untrusted fork pull requests.
-    if: vars.SONAR_PROJECT_KEY != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -32,6 +32,17 @@ jobs:
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
             echo "::error::SONAR_PROJECT_KEY está definido, mas SONAR_TOKEN não está disponível"
+            exit 1
+          fi
+      - name: Validar configuração SonarQube Cloud
+        run: |
+          set -eu
+          if [ -z "$SONAR_PROJECT_KEY" ]; then
+            echo "::error::Defina SONAR_PROJECT_KEY em Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          if [ -z "$SONAR_ORGANIZATION" ] && { [ -z "$SONAR_HOST_URL" ] || [ "$SONAR_HOST_URL" = "https://sonarcloud.io" ]; }; then
+            echo "::error::SonarQube Cloud exige SONAR_ORGANIZATION. Copie a Organization Key exata de SonarQube Cloud > Organization > Administration > General Settings e configure-a como Repository Variable no GitHub."
             exit 1
           fi
       - name: Testes e cobertura
