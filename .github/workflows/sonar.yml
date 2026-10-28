@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   sonar:
+    if: vars.SONAR_PROJECT_KEY != ''
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -24,15 +25,15 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - name: Aviso se Sonar não estiver conectado
-        if: env.SONAR_TOKEN == '' || env.SONAR_PROJECT_KEY == ''
+      - name: Exigir credencial SonarQube
         run: |
-          echo "SonarQube não executado; configure SONAR_TOKEN e SONAR_PROJECT_KEY." >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::SONAR_PROJECT_KEY está definido, mas SONAR_TOKEN não está disponível"
+            exit 1
+          fi
       - name: Testes e cobertura
-        if: env.SONAR_TOKEN != '' && env.SONAR_PROJECT_KEY != ''
         run: mvn -B -ntp verify
       - name: Analisar no SonarQube ou SonarCloud
-        if: env.SONAR_TOKEN != '' && env.SONAR_PROJECT_KEY != ''
         run: |
           set -eu
           PARAMS=("-Dsonar.projectKey=$SONAR_PROJECT_KEY" "-Dsonar.qualitygate.wait=true")
