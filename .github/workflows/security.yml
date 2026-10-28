@@ -21,6 +21,30 @@ jobs:
           languages: java
           build-mode: none
       - uses: github/codeql-action/analyze@v3
+  dependency-audit:
+    # Independent of GitHub's Dependency Graph: evaluate checked-out source
+    # and dependency manifests even when the native Dependency Review is unavailable.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Package dependencies for filesystem scanning
+        run: mvn -B -ntp package -DskipTests
+      - name: Block fixable critical/high library vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: library,os
+          severity: CRITICAL,HIGH
+
   dependency-review:
     if: github.event_name == 'pull_request' && vars.LIMITCORE_DEPENDENCY_REVIEW_ENABLED == 'true'
     runs-on: ubuntu-latest
