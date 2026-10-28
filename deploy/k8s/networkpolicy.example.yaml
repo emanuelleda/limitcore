@@ -1,0 +1,40 @@
+# Exemplo de isolamento de rede. NÃO APLIQUE SEM PERSONALIZAR.
+# - Rotule explicitamente namespaces clientes autorizados com limitcore-client-access=true
+# - Substitua 192.0.2.0/24 pelo(s) CIDR(s) reais do Redis (não por 0.0.0.0/0)
+# - Ajuste a porta Redis TLS e o seletor DNS à sua distribuição Kubernetes
+# - O tráfego do ingress controller só é permitido se vier de namespace autorizado
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: limitcore-restricted-network
+spec:
+  podSelector:
+    matchLabels:
+      app: limitcore
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              limitcore-client-access: "true"
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 192.0.2.0/24
+      ports:
+        - protocol: TCP
+          port: 6379
