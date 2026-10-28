@@ -2,7 +2,7 @@
   "title": "LimitCore Overview",
   "uid": "limitcore-overview",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "panels": [
     {
       "id": 1,
@@ -52,6 +52,40 @@
         {
           "expr": "histogram_quantile(0.95,sum by(le)(rate(http_server_requests_seconds_bucket[5m])))",
           "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Rate Limit Decisions / second",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by(outcome)(rate(limitcore_decisions_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Service up",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "min(up{job=\"limitcore\"})",
+          "legendFormat": "up"
         }
       ]
     }
