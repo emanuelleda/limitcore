@@ -86,7 +86,9 @@ jobs:
         run: |
           for script in scripts/*.sh; do bash -n "$script"; done
       - name: Test release gate on successful and failing checks
-        run: bash scripts/test-release-checks.sh
+        run: |
+          bash scripts/test-release-checks.sh
+          bash scripts/test-repository-readiness.sh
 
   observability:
     runs-on: ubuntu-latest
