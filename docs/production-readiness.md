@@ -11,7 +11,7 @@
 - `SPRING_PROFILES_ACTIVE=production` obriga credenciais API de pelo menos 32 bytes, TLS Redis e senha Redis de pelo menos 16 bytes, limita threads/conexões, habilita desligamento gracioso e desativa amostragem de traces por padrão.
 - Probes `/actuator/health/liveness` (não depende de Redis) e `/actuator/health/readiness` (depende de Redis).
 - Testes unitários, integração Testcontainers, concorrência e quota, k6 smoke, perfil `production` com Redis TLS/senha e recuperação, parada/reinício Redis e simulação de failover Sentinel com três sentinels e dois nós Redis no CI.
-- Cobertura JaCoCo com limite mínimo de linhas, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
+- Cobertura JaCoCo com limites mínimos de 90% de linhas e 75% de ramificações, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
 - Workflow para publicar imagem GHCR por tag versionada, com scan anterior ao push, SBOM, provenance, Quality Gate SonarQube e exigência de cinco workflows aprovados no SHA da release. **Publicação real por tag ainda não foi executada.**
 - Referência de K8s com réplicas, liveness/readiness, PDB, HPA, UID fixo, sistema de arquivos somente leitura e imagem por digest. **Não foi implantada.**
 - Prometheus e regras de alerta para indisponibilidade, erro, p95 e autenticação. **Alertmanager e canais de notificação precisam ser conectados.**
