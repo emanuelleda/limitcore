@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.HexFormat;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -78,7 +79,7 @@ public class RateLimitController {
     private final StringRedisTemplate redis;
     private final byte[] configuredApiKeyDigest;
     private final Map<String,List<byte[]>> tenantKeyDigests;
-    private volatile MeterRegistry meterRegistry;
+    private final AtomicReference<MeterRegistry> meterRegistry = new AtomicReference<>();
     private final int capacity;
     private final int maxActiveKeys;
     private final Map<String,Integer> tenantCapacities;
@@ -188,11 +189,11 @@ public class RateLimitController {
 
     @Autowired
     public void setMeterRegistry(MeterRegistry meterRegistry) {
-        this.meterRegistry = meterRegistry;
+        this.meterRegistry.set(meterRegistry);
     }
 
     private void recordDecision(String outcome) {
-        MeterRegistry registry = this.meterRegistry;
+        MeterRegistry registry = this.meterRegistry.get();
         if (registry != null) {
             registry.counter("limitcore.decisions", "algorithm", algorithm, "outcome", outcome).increment();
         }
