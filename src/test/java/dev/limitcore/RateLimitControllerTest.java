@@ -43,8 +43,10 @@ class RateLimitControllerTest {
         var redis = mock(StringRedisTemplate.class);
         when(redis.execute(any(RedisScript.class), anyList(), any(String.class), any(String.class), any(String.class)))
             .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("Redis unavailable"));
+        var quotaController = controller(redis, "fixed-window");
+        var request = new RateLimitController.CheckRequest("user-1");
         assertThrows(org.springframework.data.redis.RedisConnectionFailureException.class,
-            () -> controller(redis,"fixed-window").check("secret", new RateLimitController.CheckRequest("user-1")));
+            () -> quotaController.check("secret", request));
     }
     @Test void rejectsMissingApiKey() {
         var redis = mock(StringRedisTemplate.class);
@@ -148,9 +150,10 @@ class RateLimitControllerTest {
     }
     @Test void rejectsOversizedLegacySecretAtStartup() {
         var redis = mock(StringRedisTemplate.class);
+        var oversizedSecret = "x".repeat(257);
         assertThrows(IllegalArgumentException.class, () ->
             new RateLimitController(redis,
-                "x".repeat(257), 10, 60, "fixed-window"));
+                oversizedSecret, 10, 60, "fixed-window"));
     }
     @Test void tenantScopeIgnoresUntrustedClientSelectedKeys() {
         var redis = mock(StringRedisTemplate.class);
@@ -176,9 +179,10 @@ class RateLimitControllerTest {
     }
     @Test void missingRedisDecisionFailsClosedAsServiceUnavailable() {
         var redis = mock(StringRedisTemplate.class);
-        assertThrows(org.springframework.dao.DataAccessResourceFailureException.class, () ->
-            controller(redis, "fixed-window").check("secret",
-                new RateLimitController.CheckRequest("user-1")));
+        var quotaController = controller(redis, "fixed-window");
+        var request = new RateLimitController.CheckRequest("user-1");
+        assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,
+            () -> quotaController.check("secret", request));
     }
     @Test void rejectsInvalidAlgorithm() {
         var redis = mock(StringRedisTemplate.class);
