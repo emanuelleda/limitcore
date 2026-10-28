@@ -25,7 +25,23 @@ echo "| Gate | Resultado |" >> "$GITHUB_STEP_SUMMARY"
 echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
 
 protected="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.protected')"
-report "Proteção efetiva de main (PR e checks exigidos devem ser conferidos no ruleset)" "$protected"
+report "Branch main protegida" "$protected"
+
+# Verify effective rules, not merely a `protected=true` flag. The read-only
+# branch rules API exposes active repository/organization rulesets.
+effective_rules="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main")"
+if jq -e '[.[] | select(.type == "pull_request" and (.parameters.required_approving_review_count // 0) >= 1)] | length > 0' <<< "$effective_rules" >/dev/null; then
+  report "PR obrigatório com pelo menos uma aprovação" true
+else
+  report "Falta PR obrigatório com aprovação na main" false
+fi
+while IFS= read -r context; do
+  if jq -e --arg context "$context" '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[]? | .context] | index($context) != null' <<< "$effective_rules" >/dev/null; then
+    report "Check exigido no ruleset: $context" true
+  else
+    report "Check AUSENTE no ruleset efetivo: $context" false
+  fi
+done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context' docs/github-ruleset-main.json)
 
 if bash scripts/verify-release-checks.sh; then
   report "CI, Security, smoke, Sentinel, Redis TLS e load no SHA da main" true
