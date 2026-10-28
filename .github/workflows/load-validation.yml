@@ -3,13 +3,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - 'src/**'
-      - 'pom.xml'
-      - 'benchmarks/**'
-      - 'scripts/load-baseline-ci.sh'
-      - 'scripts/verify-release-checks.sh'
-      - '.github/workflows/load-validation.yml'
   workflow_dispatch:
 permissions:
   contents: read
