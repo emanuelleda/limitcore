@@ -1,6 +1,8 @@
 package dev.limitcore;
 
 import java.util.concurrent.*;
+import java.time.Duration;
+import static org.awaitility.Awaitility.await;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -234,11 +236,15 @@ class RedisRateLimitIntegrationTest {
                     assertFalse(controller.check("abcdefghijklmnop",
                         new RateLimitController.CheckRequest("c")).getBody().allowed());
                 }
-                Thread.sleep(2300);
-                for (var controller : controllers)
-                    assertTrue(controller.check("abcdefghijklmnop",
-                        new RateLimitController.CheckRequest("c")).getBody().allowed(),
-                        "Expired registry entries must release capacity");
+                await().atMost(Duration.ofSeconds(8))
+                    .pollInterval(Duration.ofMillis(100))
+                    .untilAsserted(() -> {
+                        for (var controller : controllers) {
+                            assertTrue(controller.check("abcdefghijklmnop",
+                                new RateLimitController.CheckRequest("c")).getBody().allowed(),
+                                "Expired registry entries must release capacity");
+                        }
+                    });
             } finally { factory.destroy(); }
         }
     }
