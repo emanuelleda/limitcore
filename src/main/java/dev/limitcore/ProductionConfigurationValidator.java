@@ -37,8 +37,8 @@ public final class ProductionConfigurationValidator {
         if (!redisTls) {
             throw new IllegalStateException("Production Redis connections must use TLS");
         }
-        if (redisPassword == null || redisPassword.isBlank()) {
-            throw new IllegalStateException("Production Redis requires an authenticated ACL/password connection");
+        if (redisPassword == null || redisPassword.getBytes(StandardCharsets.UTF_8).length < 16) {
+            throw new IllegalStateException("Production Redis requires a password of at least 16 UTF-8 bytes");
         }
     }
 }
