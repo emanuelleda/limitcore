@@ -11,8 +11,9 @@ spring:
     timeout-per-shutdown-phase: 20s
 server:
   shutdown: graceful
-  connection-timeout: 5s
+  max-http-request-header-size: 8KB
   tomcat:
+    connection-timeout: 5s
     threads:
       max: ${LIMITCORE_TOMCAT_MAX_THREADS:100}
     accept-count: ${LIMITCORE_TOMCAT_ACCEPT_COUNT:100}
