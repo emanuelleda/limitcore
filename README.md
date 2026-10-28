@@ -10,6 +10,7 @@
 [![Segurança](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/security.yml)
 [![Redis TLS](https://github.com/emanuelleda/limitcore/actions/workflows/production-tls.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/production-tls.yml)
 [![Sentinel](https://github.com/emanuelleda/limitcore/actions/workflows/sentinel.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/sentinel.yml)
+[![Load Baseline](https://github.com/emanuelleda/limitcore/actions/workflows/load-validation.yml/badge.svg)](https://github.com/emanuelleda/limitcore/actions/workflows/load-validation.yml)
 ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.2-6DB33F?logo=springboot&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-Lua-DC382D?logo=redis&logoColor=white)
@@ -152,7 +153,7 @@ Uma credencial inválida ou ausente retorna **HTTP 401**. Uma decisão negativa 
 | **Testes** | JUnit, Mockito, Testcontainers |
 | **Build e infraestrutura** | Maven, Docker, Docker Compose |
 | **CI e segurança** | GitHub Actions, CodeQL, Dependabot |
-| **Qualidade** | JaCoCo com cobertura mínima, Trivy, configuração SonarQube |
+| **Qualidade** | JaCoCo com gates de 90% em linhas e 75% em ramificações, Trivy, configuração SonarQube |
 | **Observabilidade** | OpenAPI, Prometheus, Grafana, Micrometer/OTLP, k6, Sentinel |
 
 ## 🧪 Testes e integração contínua
@@ -162,6 +163,10 @@ mvn verify
 ```
 
 O pipeline inclui **testes unitários**, **testes de integração com Redis** e um **cenário de concorrência** para janela fixa. Os workflows de CI e segurança ficam disponíveis na aba [Actions](https://github.com/emanuelleda/limitcore/actions).
+
+O workflow **Load Baseline Evidence** executa uma matriz de três testes k6 (Fixed Window, Token Bucket e Sliding Window) com métricas p95/p99, taxa de requisições e erros. A configuração, o SHA e o JSON de resultados são preservados por 30 dias como artefatos, e o gate de release exige esse teste aprovado no commit versionado. Essa medição em runner local não equivale a um benchmark de produção.
+
+O workflow **Security** também possui um `dependency-audit` obrigatório via Trivy que funciona sem o Dependency Graph; a revisão nativa do GitHub continua dependendo de sua habilitação.
 
 A configuração do SonarQube está preparada, mas uma análise conectada e seu *quality gate* ainda dependem de configuração externa.
 
@@ -220,6 +225,8 @@ Consulte o [guia de prontidão para produção](docs/production-readiness.md) e 
 | [📝 ADR Redis Lua](docs/adr/0001-redis-lua.md) | Decisões arquiteturais |
 | [🔒 Segurança](SECURITY.md) | Riscos, recomendações e divulgação responsável |
 | [🛡️ Modelo de ameaças](docs/threat-model.md) | Limites de confiança, ataques e cenários de abuso |
+| [🔧 Ativação externa](docs/external-activation.md) | SonarQube, branch protection, Dependency Review e homologação real |
+| [📊 Benchmark](docs/load-testing.md) | Limites e metodologia dos testes de carga |
 | [🤝 Contribuição](CONTRIBUTING.md) | Como colaborar com o projeto |
 
 ## 🗺️ Evolução do projeto

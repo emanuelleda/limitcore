@@ -16,6 +16,7 @@ if (!Number.isInteger(vus) || vus < 1 ||
 }
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   scenarios: { steady: { executor: 'constant-vus', vus, duration } },
   thresholds: {
     checks: ['rate>0.99'],
@@ -28,7 +29,9 @@ export default function () {
   const url = __ENV.LIMITCORE_URL || 'http://localhost:8080/v1/limits/check';
   const key = __ENV.LIMITCORE_API_KEY;
   if (!key) throw new Error('Set LIMITCORE_API_KEY');
-  const response = http.post(url, JSON.stringify({ key: 'benchmark-' + (__VU % distinctKeys) }), {
+  // Cycle through every configured logical key, not just one key per VU.
+  const keyNumber = (__VU * 997 + __ITER) % distinctKeys;
+  const response = http.post(url, JSON.stringify({ key: 'benchmark-' + keyNumber }), {
     headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
     timeout: '10s',
   });

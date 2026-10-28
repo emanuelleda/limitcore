@@ -2,18 +2,12 @@ name: Redis Sentinel Failover
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'pom.xml'
-      - 'scripts/sentinel-failover-ci.sh'
-      - '.github/workflows/sentinel.yml'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'pom.xml'
-      - 'scripts/sentinel-failover-ci.sh'
-      - '.github/workflows/sentinel.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 jobs:

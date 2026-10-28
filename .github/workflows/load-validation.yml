@@ -1,0 +1,43 @@
+name: Load Baseline Evidence
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 5 * * 1'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+jobs:
+  load-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        algorithm: [fixed-window, token-bucket, sliding-window]
+    env:
+      LIMITCORE_ALGORITHM: ${{ matrix.algorithm }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Build app for bounded k6 baseline
+        run: mvn -B -ntp package -DskipTests
+      - name: Run and collect machine-readable load evidence
+        run: bash scripts/load-baseline-ci.sh
+      - name: Preserve config, p95/p99, request rate and failed thresholds
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-baseline-${{ matrix.algorithm }}-evidence
+          path: target/load-baseline/
+          if-no-files-found: warn
+          retention-days: 30

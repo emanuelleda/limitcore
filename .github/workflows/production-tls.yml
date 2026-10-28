@@ -3,12 +3,11 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - 'src/**'
-      - 'pom.xml'
-      - 'scripts/production-tls-smoke-ci.sh'
-      - '.github/workflows/production-tls.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 jobs:

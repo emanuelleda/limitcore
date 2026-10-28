@@ -11,7 +11,7 @@
 - `SPRING_PROFILES_ACTIVE=production` obriga credenciais API de pelo menos 32 bytes, TLS Redis e senha Redis de pelo menos 16 bytes, limita threads/conexões, habilita desligamento gracioso e desativa amostragem de traces por padrão.
 - Probes `/actuator/health/liveness` (não depende de Redis) e `/actuator/health/readiness` (depende de Redis).
 - Testes unitários, integração Testcontainers, concorrência e quota, k6 smoke, perfil `production` com Redis TLS/senha e recuperação, parada/reinício Redis e simulação de failover Sentinel com três sentinels e dois nós Redis no CI.
-- Cobertura JaCoCo com limite mínimo de linhas, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
+- Cobertura JaCoCo com limites mínimos de 90% de linhas e 75% de ramificações, CodeQL, Docker não-root, CI para build de imagem, varredura Trivy de vulnerabilidades corrigíveis HIGH/CRITICAL, SBOM CycloneDX.
 - Workflow para publicar imagem GHCR por tag versionada, com scan anterior ao push, SBOM, provenance, Quality Gate SonarQube e exigência de cinco workflows aprovados no SHA da release. **Publicação real por tag ainda não foi executada.**
 - Referência de K8s com réplicas, liveness/readiness, PDB, HPA, UID fixo, sistema de arquivos somente leitura e imagem por digest. **Não foi implantada.**
 - Prometheus e regras de alerta para indisponibilidade, erro, p95 e autenticação. **Alertmanager e canais de notificação precisam ser conectados.**
@@ -20,7 +20,7 @@
 
 | Critério | Verificação necessária |
 | --- | --- |
-| CI, CodeQL, smoke, Sentinel, Redis TLS autenticado e imagem | Todos verdes no SHA candidato, com artefatos retidos |
+| CI, CodeQL, Trivy, smoke, Sentinel, Redis TLS autenticado, benchmark de CI e imagem | Todos verdes no SHA candidato, com artefatos retidos |
 | Trivy e dependências | Nenhum alerta HIGH/CRITICAL corrigível; demais riscos documentados |
 | SonarQube | Token e organização conectados; Quality Gate efetivamente aprovado; releases agora bloqueadas quando a integração não estiver configurada |
 | Dependency Review | Dependency Graph habilitado; checagem operante em pull request |
@@ -36,7 +36,7 @@
 
 ## Procedimento de preparação para rollout
 
-1. Configure proteção da branch `main`, segredos SonarQube e aprovação do Quality Gate. Revise os artefatos do workflow e as dependências. Nunca ignore alertas apenas para deixar o pipeline verde.
+1. Configure proteção da branch `main` usando [o modelo versionado](github-ruleset-main.json) com uma credencial administrativa, segredos SonarQube e aprovação do Quality Gate. Revise os artefatos do workflow e as dependências. Nunca ignore alertas apenas para deixar o pipeline verde.
 2. Construa uma imagem por tag a partir da `main`; use o digest publicado no deployment.
 3. Configure infraestrutura Redis/Sentinel e credenciais em um cofre. Configure `REDIS_SSL_ENABLED=true`.
 4. Inicie o perfil `production` em *staging*; exija 401 para credenciais inválidas, 413 para payloads grandes e readiness 503 quando Redis está indisponível.
@@ -57,6 +57,8 @@
 - A segurança do cluster, certificados e disponibilidade contínua não pode ser atestada apenas por arquivos versionados.
 
 Consulte [execução de carga](load-testing.md), [operações e incidentes](operations.md), [referência de implantação](../deploy/k8s/README.md) e [política de segurança](../SECURITY.md).
+
+Veja o procedimento detalhado em [Ativação dos controles externos](external-activation.md).
 
 ## Estado dos controles externos
 

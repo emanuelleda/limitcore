@@ -4,11 +4,13 @@
 
 O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto cobre concorrência nos três algoritmos e registro limitado de identificadores; há testes de isolamento de tenants e expiração de registros no Redis.
 
-O JaCoCo exige pelo menos **50% de cobertura de linhas**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
+O CI executa ainda o workflow **Load Baseline Evidence**, com k6 para os três algoritmos e relatórios JSON de p95/p99, além de testes do gate de release: checks de workflows não podem ser aproveitados de outros commits nem de execuções anteriores ao último erro.
+
+O JaCoCo exige pelo menos **90% de cobertura de linhas e 75% de cobertura de ramificações**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
 
 ## Segurança e dependências
 
-O workflow CodeQL realiza análise estática; a imagem Docker é verificada por Trivy contra vulnerabilidades altas/críticas corrigíveis e o CI valida a execução com UID não privilegiado. A revisão automática de dependências em *pull requests* depende da ativação do Dependency graph e da variável `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true`; sem elas, esse job é ignorado. O Dependabot propõe atualizações periódicas.
+O workflow CodeQL realiza análise estática; o job **dependency-audit** executa Trivy em dependências e artefatos, bloqueando falhas HIGH/CRITICAL corrigíveis mesmo sem GitHub Dependency Graph. A análise nativa `dependency-review` continua opcional e depende de habilitação pelo administrador. A imagem Docker é verificada por Trivy contra vulnerabilidades altas/críticas corrigíveis e o CI valida a execução com UID não privilegiado. A revisão automática de dependências em *pull requests* depende da ativação do Dependency graph e da variável `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true`; sem elas, esse job é ignorado. O Dependabot propõe atualizações periódicas.
 
 ## SonarQube
 
@@ -24,7 +26,7 @@ A ação `dependency-review` depende de o **Dependency graph** estar habilitado 
 
 ## Publicação de versões
 
-Os workflows `Release` e `Publish OCI Image` são acionados por tags SemVer no formato `vMAJOR.MINOR.PATCH` que pertençam à `main`. Ambos exigem testes e uma **análise SonarQube conectada com Quality Gate aprovado** (`SONAR_PROJECT_KEY` e `SONAR_TOKEN`). Além disso, `scripts/verify-release-checks.sh` impede a publicação sem cinco workflows aprovados no **mesmo SHA** (`ci.yml`, `security.yml`, `smoke.yml`, `sentinel.yml` e `production-tls.yml`). O CI testa o gate usando resultados simulados positivos e negativos. Enquanto SonarQube não estiver configurado, uma publicação versionada deve falhar, em vez de prosseguir sem a qualidade exigida.
+Os workflows `Release` e `Publish OCI Image` são acionados por tags SemVer no formato `vMAJOR.MINOR.PATCH` que pertençam à `main`. Ambos exigem testes e uma **análise SonarQube conectada com Quality Gate aprovado** (`SONAR_PROJECT_KEY` e `SONAR_TOKEN`). Além disso, `scripts/verify-release-checks.sh` impede a publicação sem seis workflows aprovados no **mesmo SHA** (`ci.yml`, `security.yml`, `smoke.yml`, `sentinel.yml`, `production-tls.yml` e `load-validation.yml`). O CI testa o gate usando resultados simulados positivos e negativos. Enquanto SonarQube não estiver configurado, uma publicação versionada deve falhar, em vez de prosseguir sem a qualidade exigida.
 
 O workflow `Release` produz JAR com versão sem `SNAPSHOT` igual à tag e inclui um SBOM CycloneDX. `Publish OCI Image` compila a mesma versão para uma imagem GHCR (sem tag `latest`), executa Trivy antes de publicar e inclui SBOM e proveniência. **Esses workflows ainda precisam de um ensaio real por tag**; testes de PR não exercitam a publicação.
 
