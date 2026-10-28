@@ -28,8 +28,12 @@ paths:
           description: Requisição inválida
         '401':
           description: Chave de API ausente ou inválida
+        '413':
+          description: Corpo de requisição acima de 1 KiB
+        '503':
+          description: Redis indisponível ou sem decisão; nenhuma autorização presumida
         '500':
-          description: Falha interna, incluindo indisponibilidade do Redis
+          description: Falha interna inesperada
 components:
   securitySchemes:
     ApiKey:
@@ -45,7 +49,21 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-          pattern: '^[a-zA-Z0-9:_-]+$'
+          pattern: '^[a-zA-Z0-9:_-]+
+    CheckResponse:
+      type: object
+      required: [allowed, algorithm]
+      properties:
+        allowed:
+          type: boolean
+        algorithm:
+          type: string
+          enum: [fixed-window, token-bucket, sliding-window]
+
+          description: >-
+            Identificador do consumidor em modo identifier. Quando LIMITCORE_KEY_SCOPE=tenant
+            (padrão do perfil production), é validado mas não altera a identidade da quota:
+            todos os identificadores do mesmo tenant compartilham a mesma capacidade.
     CheckResponse:
       type: object
       required: [allowed, algorithm]
