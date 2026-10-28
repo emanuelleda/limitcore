@@ -4,7 +4,7 @@
 
 O GitHub Actions executa `mvn verify`, incluindo testes unitários com JUnit/Mockito e testes de integração com Redis por meio do Testcontainers. O projeto cobre concorrência nos três algoritmos e registro limitado de identificadores; há testes de isolamento de tenants e expiração de registros no Redis.
 
-O CI executa ainda o workflow **Load Baseline Evidence**, com k6 e relatórios JSON de p95/p99, além de testes do gate de release: checks de workflows não podem ser aproveitados de outros commits nem de execuções anteriores ao último erro.
+O CI executa ainda o workflow **Load Baseline Evidence**, com k6 para os três algoritmos e relatórios JSON de p95/p99, além de testes do gate de release: checks de workflows não podem ser aproveitados de outros commits nem de execuções anteriores ao último erro.
 
 O JaCoCo exige pelo menos **50% de cobertura de linhas**, e gera relatórios disponibilizados como artefatos do pipeline. O CI também gera e publica um SBOM CycloneDX compatível com Java 25.
 
