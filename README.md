@@ -168,11 +168,11 @@ O workflow **Load Baseline Evidence** executa uma matriz de três testes k6 (Fix
 
 O workflow **Security** também possui um `dependency-audit` obrigatório via Trivy que funciona sem o Dependency Graph; a revisão nativa do GitHub continua dependendo de sua habilitação.
 
-O **SonarQube Cloud está conectado**, com Quality Gate aprovado na `main` (workflow concluído em 28/10/2026). Verifique novamente os checks no SHA de cada nova release. A proteção da `main`, o Dependency Review nativo e os testes operacionais ainda precisam de validação externa.
+O **SonarQube Cloud está conectado**, com Quality Gate aprovado na `main` (workflow concluído em 28/10/2026). Verifique novamente os checks no SHA de cada nova release. A `main` está protegida; o Dependency Review executou com sucesso no PR #26, mas ainda precisa ser integrado e tornado obrigatório no ruleset. Testes operacionais reais seguem pendentes.
 
 ## 🧾 Prontidão para produção
 
-O status atual é **Release Candidate / NO-GO para produção real**. O SonarQube e os sete workflows passaram em `main`, mas a infraestrutura, a proteção da branch e o Dependency Review nativo ainda requerem evidências externas. Veja [Go / No-Go e validação de staging](docs/release-go-no-go.md) e execute o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) após a configuração administrativa.
+O status atual é **Release Candidate / NO-GO para produção real**. O SonarQube e os sete workflows passaram em `main`, mas a infraestrutura e as provas de bloqueio do ruleset ainda requerem evidências externas. O Dependency Review aprovado no PR #26 ainda precisa de revisão, merge e regra obrigatória. Veja [Go / No-Go e validação de staging](docs/release-go-no-go.md) e execute o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) após a configuração administrativa.
 
 ## ⚙️ Configuração
 
