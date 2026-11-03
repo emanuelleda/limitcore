@@ -22,7 +22,7 @@
 
 1. Mantenha o **Dependency Graph** habilitado em [Advanced Security](https://github.com/emanuelleda/limitcore/settings/security_analysis). Se o GitHub sinalizar indisponibilidade, corrija a configuração antes do merge.
 2. O PR #26 remove o opt-in antigo: o job `dependency-review` passa a executar em **todos os PRs**, sem depender de `LIMITCORE_DEPENDENCY_REVIEW_ENABLED`.
-3. Com o PR #26 aprovado e integrado, adicione `dependency-review` aos **status checks obrigatórios do ruleset**. A execução com sucesso não torna o check obrigatório automaticamente.
+3. Com o PR #26 aprovado e integrado, execute `bash scripts/require-dependency-review-check.sh` em um checkout atualizado e autenticado com GitHub CLI (permissão **Administration: write**). O script preserva os controles existentes e adiciona `dependency-review` aos **status checks obrigatórios do ruleset**. A execução do job, sozinha, não o torna obrigatório.
 4. Teste um PR com problema de dependência e confirme que o check reprovado impede o merge. Mantenha o `dependency-audit` (Trivy) como proteção complementar.
 
 Não confunda o sucesso do job em PR com ativação efetiva da exigência no ruleset.
