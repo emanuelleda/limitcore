@@ -4,13 +4,13 @@
 
 ## A. Controles administrativos do GitHub
 
-O ruleset versionado inclui `sonar` nos checks obrigatórios, além de CI, CodeQL, Trivy, smoke, Redis TLS, Sentinel e carga. **Só passa a valer quando for aplicado ao GitHub.**
+O ruleset está ativo na `main` (ID `26481292`), exigindo PR aprovado, SonarQube, CI, CodeQL, Trivy, smoke, Redis TLS, Sentinel e carga. O check `dependency-review` ainda precisa ser incluído no ruleset após integração do PR #26.
 
 1. Com conta com permissão **Administration: write**, autentique `gh` com `gh auth login`.
 2. Execute `bash scripts/apply-branch-protection.sh`. Confirme [Settings → Rules](https://github.com/emanuelleda/limitcore/settings/rules) e que `main` esteja protegida. Exigir PR revisado por outra pessoa, checks verdes, nenhuma exclusão ou force-push e nenhuma exceção não justificada.
 3. Teste que um PR com check propositalmente falhando **não pode ser mesclado**.
 4. Em [Settings → Security & analysis](https://github.com/emanuelleda/limitcore/settings/security_analysis), habilite Dependency graph (se disponível ao repositório).
-5. Em Settings → Secrets and variables → Actions → Variables, configure `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true`; abra um PR e confirme que o job **dependency-review executou e passou**, sem ser `skipped`.
+5. O [PR #26](https://github.com/emanuelleda/limitcore/pull/26) já comprovou o sucesso do job `dependency-review`. Após aprovação e merge, torne esse contexto obrigatório no ruleset; a variável antiga `LIMITCORE_DEPENDENCY_REVIEW_ENABLED` deixa de ser necessária.
 6. Execute manualmente [Production Preflight (Repository Controls)](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) na `main`. Se houver falha, **não publique**. Essa auditoria não substitui testes de produção.
 
 Se o plano/permissões do GitHub não oferecer suporte ao requisito de aprovação ou Dependency Review, **registre o bloqueio e use um fluxo com as proteções equivalentes antes de dar GO**. Não desative verificações só para obter verde.
@@ -42,7 +42,7 @@ O arquivo `deploy/k8s/limitcore.example.yaml` é uma referência com placeholder
 | Gate | Evidência exigida | Estado |
 | --- | --- | --- |
 | CI / segurança / Sonar no SHA de release | Links de Actions e Quality Gate | Comprovado para `79ccc357`; verificar novamente no SHA final |
-| Branch protection e Dependency Review | Ruleset ativo, PR negativo impedido, review executado | Pendente — acesso administrativo |
+| Branch protection e Dependency Review | Ruleset ativo, PR negativo impedido, review executado e exigido | Ruleset ativo, review aprovado no PR #26; prova negativa e exigência do check ainda pendentes |
 | Staging TLS e segredos | URL e relatório de configuração sanitizado | Pendente — ambiente |
 | Carga, failover, backup, rollback | Relatórios reproduzíveis no ambiente | Pendente — ambiente |
 | Alertas, runbook e aprovação | Teste de notificação, responsável pelo incidente, decisão GO | Pendente — operação |
