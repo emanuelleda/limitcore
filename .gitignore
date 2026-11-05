@@ -4,3 +4,8 @@ target/
 .vscode/
 .env
 *.log
+
+# Do not commit local deployment credentials or their paths
+deploy/vps/.env*
+!deploy/vps/.env.example
+deploy/vps/secrets/
