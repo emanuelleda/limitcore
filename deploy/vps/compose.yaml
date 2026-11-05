@@ -1,0 +1,51 @@
+# Single-node deployment profile for a private host behind an HTTPS reverse proxy.
+# External Redis MUST provide TLS, authentication, backups and HA where required.
+services:
+  api:
+    image: ${LIMITCORE_IMAGE:?Set an immutable GHCR digest in the deploy env file}
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 1.0
+    stop_grace_period: 30s
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m,uid=10001,gid=10001
+    ports:
+      - "127.0.0.1:${LIMITCORE_LOCAL_PORT:-18080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      REDIS_HOST: ${LIMITCORE_REDIS_HOST:?Set the external TLS Redis hostname}
+      REDIS_PORT: ${LIMITCORE_REDIS_PORT:-6380}
+      REDIS_USERNAME: ${LIMITCORE_REDIS_USERNAME:-}
+      REDIS_SSL_ENABLED: "true"
+      LIMITCORE_KEY_SCOPE: tenant
+      LIMITCORE_ALGORITHM: ${LIMITCORE_ALGORITHM:-token-bucket}
+      LIMITCORE_CAPACITY: ${LIMITCORE_CAPACITY:-100}
+      LIMITCORE_WINDOW_SECONDS: ${LIMITCORE_WINDOW_SECONDS:-60}
+      LIMITCORE_MAX_ACTIVE_KEYS: ${LIMITCORE_MAX_ACTIVE_KEYS:-1000}
+      LIMITCORE_TRACING_SAMPLE_RATE: "0"
+    secrets:
+      - tenants
+      - redis_password
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        export LIMITCORE_TENANTS="$$(cat /run/secrets/tenants)"
+        export REDIS_PASSWORD="$$(cat /run/secrets/redis_password)"
+        exec java -jar /app/app.jar
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+secrets:
+  tenants:
+    file: ${LIMITCORE_TENANTS_FILE:?Set an absolute path to the tenant credentials file}
+  redis_password:
+    file: ${LIMITCORE_REDIS_PASSWORD_FILE:?Set an absolute path to the Redis password file}
