@@ -22,14 +22,14 @@
 
 1. Mantenha o **Dependency Graph** habilitado em [Advanced Security](https://github.com/emanuelleda/limitcore/settings/security_analysis). Se o GitHub sinalizar indisponibilidade, corrija a configuração antes do merge.
 2. O PR #26 remove o opt-in antigo: o job `dependency-review` passa a executar em **todos os PRs**, sem depender de `LIMITCORE_DEPENDENCY_REVIEW_ENABLED`.
-3. Com o PR #26 aprovado e integrado, execute `bash scripts/require-dependency-review-check.sh` em um checkout atualizado e autenticado com GitHub CLI (permissão **Administration: write**). O script preserva os controles existentes e adiciona `dependency-review` aos **status checks obrigatórios do ruleset**. A execução do job, sozinha, não o torna obrigatório.
+3. O PR #26 foi mesclado, e o ruleset ativo exige `dependency-review`. O script `bash scripts/require-dependency-review-check.sh` pode ser usado para verificar a configuração com GitHub CLI autenticado (Administration: write); se o check já existir, não o duplica.
 4. Teste um PR com problema de dependência e confirme que o check reprovado impede o merge. Mantenha o `dependency-audit` (Trivy) como proteção complementar.
 
 Não confunda o sucesso do job em PR com ativação efetiva da exigência no ruleset.
 
 ## 3. Proteger a main sem depender de configurações manuais repetitivas
 
-O repositório inclui o modelo [github-ruleset-main.json](github-ruleset-main.json) e o script [apply-branch-protection.sh](../scripts/apply-branch-protection.sh). O modelo exige PR, revisão de outro colaborador, CI, SonarQube, Trivy, CodeQL, recuperação Redis, Sentinel, TLS e benchmark de carga.
+O repositório inclui o modelo [github-ruleset-main.json](github-ruleset-main.json) e o script [apply-branch-protection.sh](../scripts/apply-branch-protection.sh). O modelo exige PR sem revisão humana (decisão do mantenedor), mas mantém CI, SonarQube, Trivy, CodeQL, Dependency Review, recuperação Redis, Sentinel, TLS e benchmark de carga.
 
 De um terminal local **autenticado como administrador do repositório**:
 
@@ -41,7 +41,7 @@ bash scripts/apply-branch-protection.sh
 
 **Pré-requisito:** seu token do GitHub CLI precisa de permissão **Administration: write** para o repositório (quando aplicável). O script consulta os workflows, recusa criar uma regra duplicada e verifica as regras efetivas.
 
-Depois, abra um PR com check falhando e confirme que **o merge é bloqueado**; abra outro com aprovação válida e todos os checks verdes para confirmar que o fluxo funciona. A exigência de **uma aprovação externa** requer um colaborador revisor habilitado, o que não pode ser simulado pelo autor.
+No PR #27, o GitHub bloqueou a tentativa de merge enquanto os checks eram esperados (HTTP 405) e permitiu o squash merge após 15 checks aprovados. A aprovação externa foi desativada a pedido do mantenedor; PR, 15 checks e bloqueio a force-push permanecem obrigatórios.
 
 GitHub REST: [regras de repositório](https://docs.github.com/en/rest/repos/rules).
 

@@ -1,6 +1,6 @@
 # Critérios de prontidão para produção — LimitCore
 
-**Situação (28/10/2026):** candidato técnico em validação; **NO-GO para implantação produtiva**. Os sete workflows passaram na `main` no SHA `79ccc357` (incluindo SonarQube), mas ainda faltam controles administrativos e validação da infraestrutura real. CI verde, por si só, não substitui configuração externa, testes de capacidade, recuperação de desastre nem revisão de segurança independente.
+**Situação (04/11/2026):** candidato técnico em validação; **NO-GO para implantação produtiva**. A `main` está protegida por PR e 15 checks obrigatórios sem revisor humano, conforme decisão do mantenedor; ainda faltam configuração e ensaios da infraestrutura real. CI verde, por si só, não substitui configuração externa, testes de capacidade, recuperação de desastre nem revisão de segurança independente.
 
 ## Implementado ou preparado no repositório
 
@@ -62,7 +62,7 @@ Veja o procedimento detalhado em [Ativação dos controles externos](external-ac
 
 ## Estado dos controles externos
 
-- **GitHub Rulesets/branch protection:** a `main` está protegida pelo ruleset ativo `26481292`, com um revisor e checks exigidos. Ainda falta teste negativo de bloqueio e incluir o check `dependency-review` após aprovação do PR #26.
+- **GitHub Rulesets/branch protection:** `main` protegida pelo ruleset ativo `26481292`, sem revisão humana a pedido do mantenedor, com 15 checks incluindo `dependency-review`. O PR #27 foi bloqueado até que todos os checks passassem.
 - **SonarQube:** integração configurada, Quality Gate aprovado na `main` no SHA `9f5e4861` e check `sonar` exigido no ruleset ativo. Release e publicação de imagens exigem aprovação novamente no SHA final.
 - **Infraestrutura real:** não há evidência de cluster Redis TLS com HA, cofre de segredos, ingress TLS, restauração de backup, destinatários de alertas e testes de carga representativos conectados a este repositório. Não deduza aprovação desses controles a partir de um workflow verde.
 

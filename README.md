@@ -34,7 +34,7 @@ O estado das decisões é compartilhado no **Redis**, enquanto scripts **Lua** g
 | Identificadores com hash SHA-256 | Estado compartilhado no Redis | CodeQL e JaCoCo | Benchmark inicial com k6 |
 
 > [!IMPORTANT]
-> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, proteção da branch, Dependency Review, provisão de segredos e revisão operacional. [Checklist de produção](docs/production-readiness.md).
+> **Projeto em evolução.** O código possui testes automatizados, verificação de imagem e simulação de failover Redis Sentinel; para produção ainda são obrigatórias validações de carga e segurança na infraestrutura real, provisão de segredos e revisão operacional. A `main` já exige PR e 15 verificações. [Checklist de produção](docs/production-readiness.md).
 
 ## 🏗️ Arquitetura
 
@@ -168,11 +168,11 @@ O workflow **Load Baseline Evidence** executa uma matriz de três testes k6 (Fix
 
 O workflow **Security** também possui um `dependency-audit` obrigatório via Trivy que funciona sem o Dependency Graph; a revisão nativa do GitHub continua dependendo de sua habilitação.
 
-O **SonarQube Cloud está conectado**, com Quality Gate aprovado na `main` (workflow concluído em 28/10/2026). Verifique novamente os checks no SHA de cada nova release. A `main` está protegida; o Dependency Review executou com sucesso no PR #26, mas ainda precisa ser integrado e tornado obrigatório no ruleset. Testes operacionais reais seguem pendentes.
+O **SonarQube Cloud está conectado**, com Quality Gate aprovado na `main` (workflow concluído em 28/10/2026). Verifique novamente os checks no SHA de cada nova release. A `main` está protegida; o Dependency Review está integrado e é obrigatório no ruleset. Testes operacionais reais seguem pendentes.
 
 ## 🧾 Prontidão para produção
 
-O status atual é **Release Candidate / NO-GO para produção real**. O SonarQube e os sete workflows passaram em `main`, mas a infraestrutura e as provas de bloqueio do ruleset ainda requerem evidências externas. O Dependency Review aprovado no PR #26 ainda precisa de revisão, merge e regra obrigatória. Veja [Go / No-Go e validação de staging](docs/release-go-no-go.md) e execute o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) após a configuração administrativa.
+O status atual é **Release Candidate / NO-GO para produção real**. O SonarQube e os sete workflows passaram em `main`, mas a infraestrutura real ainda requer evidências externas. O ruleset exige PR e 15 checks, sem revisão humana por decisão do mantenedor. Veja [Go / No-Go e validação de staging](docs/release-go-no-go.md) e execute o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml) após a configuração administrativa.
 
 ## ⚙️ Configuração
 
