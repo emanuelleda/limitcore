@@ -78,6 +78,8 @@ Todos usam scripts Lua para manter a operação atômica em um primário Redis. 
 > [!WARNING]
 > **Migração do formato Redis:** esta implementação altera o padrão das chaves. Ao migrar da versão anterior, quotas em andamento são reiniciadas; programe a implantação para evitar decisões inesperadas durante a troca.
 
+**[Executar temporariamente no GitHub Codespaces](.devcontainer/README.md)** — prévia da API com Java 25 e Redis dentro do GitHub, com porta privada. Codespaces não é hospedagem 24/7; a API só funciona enquanto o ambiente está ativo. Nenhuma VPS da empresa é utilizada.
+
 ## 🚀 Início rápido
 
 **Pré-requisitos:** Java 25, Maven 3.9+ e Docker Compose.

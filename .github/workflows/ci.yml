@@ -64,6 +64,16 @@ jobs:
           docker run --rm --entrypoint /bin/sh limitcore:ci -ec 'test "$(id -u)" = 10001 && command -v cat >/dev/null'
       - name: Boot VPS Compose with temporary secrets and verify fail-closed behavior
         run: bash scripts/test-vps-container.sh
+      - name: Build Codespaces Java 25 image and verify unprivileged runtime
+        run: |
+          docker build --pull -f .devcontainer/Dockerfile -t limitcore:codespaces .devcontainer
+          docker run --rm --entrypoint /bin/bash limitcore:codespaces -lc '
+            test "$(id -u)" -ne 0
+            command -v curl >/dev/null
+            java -version
+            mvn -version
+          '
+
 
 
   release-packaging:
@@ -93,6 +103,27 @@ jobs:
         run: |
           bash scripts/test-release-checks.sh
           bash scripts/test-repository-readiness.sh
+      - name: Verify temporary GitHub Codespaces demo configuration
+        run: |
+          bash -n .devcontainer/start-demo.sh
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          python3 - <<'PY'
+          import json
+          with open(".devcontainer/devcontainer.json", encoding="utf8") as f:
+              c = json.load(f)
+          assert c["service"] == "app"
+          assert c["remoteUser"] == "vscode"
+          assert 8080 in c["forwardPorts"]
+          assert "start-demo.sh" in c["postStartCommand"]
+          PY
+          docker compose -f .devcontainer/compose.yaml config --format json |
+            jq -e '
+              .services.app.environment.REDIS_HOST == "redis"
+              and .services.app.environment.LIMITCORE_KEY_SCOPE == "tenant"
+              and ((.services.redis.ports // []) | length == 0)
+              and ((.services.app.ports // []) | length == 0)
+              and .services.redis.healthcheck != null
+            ' >/dev/null
       - name: Validate deployment bundle and OpenAPI contract
         run: |
           bash scripts/test-vps-deploy.sh
