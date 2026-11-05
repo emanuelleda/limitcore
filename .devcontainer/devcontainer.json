@@ -1,0 +1,22 @@
+{
+  "name": "LimitCore — demonstração temporária (Java 25 + Redis)",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/limitcore",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "LimitCore API — privado",
+      "onAutoForward": "notify"
+    }
+  },
+  "postStartCommand": "bash .devcontainer/start-demo.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["vscjava.vscode-java-pack"]
+    }
+  }
+}
