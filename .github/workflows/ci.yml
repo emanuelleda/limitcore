@@ -64,6 +64,16 @@ jobs:
           docker run --rm --entrypoint /bin/sh limitcore:ci -ec 'test "$(id -u)" = 10001 && command -v cat >/dev/null'
       - name: Boot VPS Compose with temporary secrets and verify fail-closed behavior
         run: bash scripts/test-vps-container.sh
+      - name: Build Codespaces Java 25 image and verify unprivileged runtime
+        run: |
+          docker build --pull -f .devcontainer/Dockerfile -t limitcore:codespaces .devcontainer
+          docker run --rm --entrypoint /bin/bash limitcore:codespaces -lc '
+            test "$(id -u)" -ne 0
+            command -v curl >/dev/null
+            java -version
+            mvn -version
+          '
+
 
 
   release-packaging:
