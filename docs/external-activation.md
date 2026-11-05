@@ -18,13 +18,14 @@
 
 ## 2. Dependency Graph e Dependency Review
 
-1. Acesse [Security & analysis](https://github.com/emanuelleda/limitcore/settings/security_analysis) e habilite **Dependency graph** para o repositório.
-2. Confirme que a ação nativa `actions/dependency-review-action` é suportada para esse repositório.
-3. Em **Settings → Secrets and variables → Actions → Variables**, configure `LIMITCORE_DEPENDENCY_REVIEW_ENABLED=true`.
-4. Abra um PR de teste e confirme que o job `dependency-review` **executou** em vez de aparecer como `skipped`.
-5. Como compensação, o job **`dependency-audit` com Trivy** é obrigatório independentemente do Dependency Graph e bloqueia bibliotecas com vulnerabilidades altas/críticas corrigíveis.
+**Validação em 03/11/2026:** o job nativo `dependency-review` executou com **success** no [PR #26](https://github.com/emanuelleda/limitcore/pull/26), comprovando que o recurso está operacional para este repositório.
 
-Não marque o item nativo como resolvido apenas pelo scanner substituto.
+1. Mantenha o **Dependency Graph** habilitado em [Advanced Security](https://github.com/emanuelleda/limitcore/settings/security_analysis). Se o GitHub sinalizar indisponibilidade, corrija a configuração antes do merge.
+2. O PR #26 remove o opt-in antigo: o job `dependency-review` passa a executar em **todos os PRs**, sem depender de `LIMITCORE_DEPENDENCY_REVIEW_ENABLED`.
+3. Com o PR #26 aprovado e integrado, execute `bash scripts/require-dependency-review-check.sh` em um checkout atualizado e autenticado com GitHub CLI (permissão **Administration: write**). O script preserva os controles existentes e adiciona `dependency-review` aos **status checks obrigatórios do ruleset**. A execução do job, sozinha, não o torna obrigatório.
+4. Teste um PR com problema de dependência e confirme que o check reprovado impede o merge. Mantenha o `dependency-audit` (Trivy) como proteção complementar.
+
+Não confunda o sucesso do job em PR com ativação efetiva da exigência no ruleset.
 
 ## 3. Proteger a main sem depender de configurações manuais repetitivas
 
@@ -68,4 +69,4 @@ Apenas após validar 1–4:
 4. Promova primeiro em staging, faça smoke + benchmark + failover, depois rollout gradual com rollback pronto.
 5. Registre a decisão **GO / NO-GO**, responsáveis, evidências e versão realmente operante.
 
-**Estado (28/10/2026):** CI e SonarQube verdes na `main`; ainda falta ativar branch protection e Dependency Review e comprovar staging. Consulte [Go / No-Go](release-go-no-go.md) e o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml). Prontidão operacional depende de evidências externas. Issues [#7](https://github.com/emanuelleda/limitcore/issues/7), [#8](https://github.com/emanuelleda/limitcore/issues/8), [#10](https://github.com/emanuelleda/limitcore/issues/10) e [#13](https://github.com/emanuelleda/limitcore/issues/13) acompanham os bloqueios restantes.
+**Estado (03/11/2026):** o ruleset da `main` está ativo; SonarQube e CI verdes; o Dependency Review passou no PR #26, aguardando revisão/merge e inclusão no ruleset. Ainda falta comprovar staging. Consulte [Go / No-Go](release-go-no-go.md) e o [Production Preflight](https://github.com/emanuelleda/limitcore/actions/workflows/production-preflight.yml). Prontidão operacional depende de evidências externas. Issues [#7](https://github.com/emanuelleda/limitcore/issues/7), [#8](https://github.com/emanuelleda/limitcore/issues/8), [#10](https://github.com/emanuelleda/limitcore/issues/10) e [#13](https://github.com/emanuelleda/limitcore/issues/13) acompanham os bloqueios restantes.
