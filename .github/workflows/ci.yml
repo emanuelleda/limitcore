@@ -60,6 +60,8 @@ jobs:
           user="$(docker inspect -f '{{.Config.User}}' limitcore:ci)"
           test "$user" = 10001
           docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' limitcore:ci | grep -q 'MaxRAMPercentage=75'
+          # VPS compose uses a shell entrypoint to load file-backed secrets.
+          docker run --rm --entrypoint /bin/sh limitcore:ci -ec 'test "$(id -u)" = 10001 && command -v cat >/dev/null'
 
 
   release-packaging:
@@ -89,6 +91,22 @@ jobs:
         run: |
           bash scripts/test-release-checks.sh
           bash scripts/test-repository-readiness.sh
+      - name: Validate deployment bundle and OpenAPI contract
+        run: |
+          bash scripts/test-vps-deploy.sh
+          ruby -ryaml -e '
+            src = File.read("docs/openapi.yaml")
+            abort "Duplicate response schema" unless src.scan(/^    CheckResponse:/).size == 1
+            abort "Duplicate request schema" unless src.scan(/^    CheckRequest:/).size == 1
+            doc = YAML.load_file("docs/openapi.yaml")
+            schemas = doc.fetch("components").fetch("schemas")
+            request = schemas.fetch("CheckRequest").fetch("properties").fetch("key")
+            response = schemas.fetch("CheckResponse").fetch("properties")
+            abort "Invalid request pattern" unless request["pattern"] == "^[a-zA-Z0-9:_-]{1,128}$"
+            abort "Invalid response" unless response["allowed"]["type"] == "boolean"
+            abort "Invalid algorithm enum" unless response["algorithm"]["enum"].size == 3
+            puts "OpenAPI contract validation passed"
+          '
 
   observability:
     runs-on: ubuntu-latest
