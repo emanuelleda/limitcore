@@ -50,8 +50,13 @@ jobs:
           severity: CRITICAL,HIGH
 
   dependency-review:
-    if: github.event_name == 'pull_request' && vars.LIMITCORE_DEPENDENCY_REVIEW_ENABLED == 'true'
+    # Do not silently skip dependency review on pull requests.
+    # Keep this gate fail-closed until Dependency Graph is enabled on GitHub.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4

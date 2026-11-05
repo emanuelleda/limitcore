@@ -62,8 +62,8 @@ Veja o procedimento detalhado em [Ativação dos controles externos](external-ac
 
 ## Estado dos controles externos
 
-- **GitHub Rulesets/branch protection:** a `main` não estava protegida na auditoria deste ciclo. É necessário configurá-la em **Settings → Rules → Rulesets** (ou Branch protection) e exigir revisões e checks de PR. O acesso da integração usada nesta auditoria não permite alterar regras administrativas.
-- **SonarQube:** integração configurada, Quality Gate aprovado na `main` no SHA `79ccc357`. O ruleset versionado agora exige o job `sonar`, **mas o ruleset precisa ser ativado por um administrador**. Release e publicação de imagens exigem nova aprovação do gate no SHA final.
+- **GitHub Rulesets/branch protection:** a `main` está protegida pelo ruleset ativo `26481292`, com um revisor e checks exigidos. Ainda falta teste negativo de bloqueio e incluir o check `dependency-review` após aprovação do PR #26.
+- **SonarQube:** integração configurada, Quality Gate aprovado na `main` no SHA `9f5e4861` e check `sonar` exigido no ruleset ativo. Release e publicação de imagens exigem aprovação novamente no SHA final.
 - **Infraestrutura real:** não há evidência de cluster Redis TLS com HA, cofre de segredos, ingress TLS, restauração de backup, destinatários de alertas e testes de carga representativos conectados a este repositório. Não deduza aprovação desses controles a partir de um workflow verde.
 
 Consulte [Go / No-Go](release-go-no-go.md) e o workflow manual **Production Preflight (Repository Controls)** para separar evidências de CI de aprovação operacional.
