@@ -22,13 +22,14 @@ if curl -fsS --connect-timeout 2 --max-time 3 http://127.0.0.1:8080/actuator/hea
   echo "LimitCore preview already responds on port 8080."
   exit 0
 fi
-(
-  export LIMITCORE_API_KEY
-  LIMITCORE_API_KEY="$(cat "$keyfile")"
+# Detach from the lifecycle hook; the preview stays alive while Codespaces runs.
+# Only the *path* to the private key enters argv; its value stays out of argv/logs.
+nohup bash -c '
+  export LIMITCORE_API_KEY="$(cat "$1")"
   export LIMITCORE_KEY_SCOPE=tenant
   export LIMITCORE_TRACING_SAMPLE_RATE=0
   exec mvn -B -ntp -DskipTests spring-boot:run
-) >"$logfile" 2>&1 </dev/null &
+' _ "$keyfile" >"$logfile" 2>&1 </dev/null &
 echo "$!" > "$pidfile"
 
 echo "LimitCore preview is starting (Java 25 + private Redis container)."
