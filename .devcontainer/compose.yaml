@@ -1,0 +1,32 @@
+# Demo only. Redis has no host port and no persistence/HA.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/limitcore:cached
+      - maven-cache:/home/vscode/.m2
+    command: sleep infinity
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      LIMITCORE_KEY_SCOPE: tenant
+      LIMITCORE_ALGORITHM: token-bucket
+      LIMITCORE_CAPACITY: "30"
+      LIMITCORE_WINDOW_SECONDS: "60"
+      LIMITCORE_TRACING_SAMPLE_RATE: "0"
+    depends_on:
+      redis:
+        condition: service_healthy
+  redis:
+    image: redis:7.4-alpine
+    # Ephemeral, isolated demo. NEVER use this Redis for real production.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  maven-cache:
