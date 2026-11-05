@@ -62,6 +62,8 @@ jobs:
           docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' limitcore:ci | grep -q 'MaxRAMPercentage=75'
           # VPS compose uses a shell entrypoint to load file-backed secrets.
           docker run --rm --entrypoint /bin/sh limitcore:ci -ec 'test "$(id -u)" = 10001 && command -v cat >/dev/null'
+      - name: Boot VPS Compose with temporary secrets and verify fail-closed behavior
+        run: bash scripts/test-vps-container.sh
 
 
   release-packaging:
