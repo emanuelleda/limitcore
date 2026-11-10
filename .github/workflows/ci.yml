@@ -70,6 +70,11 @@ jobs:
           docker run --rm --entrypoint /bin/bash limitcore:codespaces -lc '
             test "$(id -u)" -ne 0
             command -v curl >/dev/null
+            command -v tmux >/dev/null
+            tmux -V
+            tmux new-session -d -s limitcore-ci-check "sleep 10"
+            tmux has-session -t "=limitcore-ci-check"
+            tmux kill-session -t "=limitcore-ci-check"
             java -version
             mvn -version
           '
@@ -106,6 +111,7 @@ jobs:
       - name: Verify temporary GitHub Codespaces demo configuration
         run: |
           bash -n .devcontainer/start-demo.sh
+          bash -n .devcontainer/run-demo.sh
           python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
           python3 - <<'PY'
           import json
@@ -114,7 +120,7 @@ jobs:
           assert c["service"] == "app"
           assert c["remoteUser"] == "vscode"
           assert 8080 in c["forwardPorts"]
-          assert "start-demo.sh" in c["postStartCommand"]
+          assert c["postStartCommand"] == "bash .devcontainer/start-demo.sh --background"
           PY
           docker compose -f .devcontainer/compose.yaml config --format json |
             jq -e '

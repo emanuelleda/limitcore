@@ -1,38 +1,113 @@
 #!/usr/bin/env bash
-# Starts a disposable Codespaces preview; never enables the production profile.
+# Start/inspect a temporary Codespaces preview. It never uses production config.
 set -Eeuo pipefail
 cd /workspaces/limitcore
 state="$HOME/.local/state/limitcore-demo"
+keyfile="$state/api-key"
+logfile="$state/app.log"
+session="limitcore-demo"
+mode="${1:-start}"
+if [[ "$mode" != "start" && "$mode" != "--background" && "$mode" != "--status" && "$mode" != "--restart" ]]; then
+  echo "Usage: bash .devcontainer/start-demo.sh [--background|--status|--restart]" >&2
+  exit 2
+fi
+umask 077
 mkdir -p "$state"
 chmod 700 "$state"
-keyfile="$state/api-key"
-pidfile="$state/app.pid"
-logfile="$state/app.log"
+
+health() { curl -fsS --connect-timeout 2 --max-time 3 http://127.0.0.1:8080/actuator/health/liveness >/dev/null 2>&1; }
+readiness() { curl -fsS --connect-timeout 2 --max-time 3 http://127.0.0.1:8080/actuator/health/readiness >/dev/null 2>&1; }
+session_live() { tmux has-session -t "=$session" 2>/dev/null; }
+diagnose() {
+  echo "Recent preview logs:"
+  if [[ -f "$logfile" ]]; then
+    tail -n 35 "$logfile"
+  else
+    echo "(No log file was produced.)"
+  fi
+  echo "Tip: tail -f ~/.local/state/limitcore-demo/app.log"
+}
+
+if ! command -v tmux >/dev/null; then
+  echo "tmux is missing from this Codespace image. Rebuild the container (Command Palette → Codespaces: Rebuild Container), then retry." >&2
+  exit 1
+fi
+
+if [[ "$mode" == "--status" ]]; then
+  if health; then
+    echo "LimitCore liveness: UP (port 8080)"
+    if readiness; then
+      echo "LimitCore readiness: UP (Redis available)"
+    else
+      echo "WARNING: readiness is not UP. Check Redis and logs." >&2
+      diagnose
+      exit 1
+    fi
+  elif session_live; then
+    echo "LimitCore process is running but not healthy on port 8080 yet."
+    diagnose
+    exit 1
+  else
+    echo "LimitCore demo is NOT running."
+    diagnose
+    exit 1
+  fi
+  exit 0
+fi
+
+if [[ "$mode" == "--restart" ]] && session_live; then
+  echo "Stopping the existing demo session..."
+  tmux kill-session -t "=$session"
+fi
+if health; then
+  echo "LimitCore is already listening on port 8080."
+  if readiness; then echo "Redis readiness: UP"; else echo "WARNING: Redis readiness is not UP"; fi
+  exit 0
+fi
+
 if [[ ! -s "$keyfile" ]]; then
-  umask 077
   head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$keyfile"
 fi
 chmod 600 "$keyfile"
 
-if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-  echo "LimitCore preview process already running."
-  exit 0
+if ! session_live; then
+  : > "$logfile"
+  # A detached tmux server survives the VS Code postStart lifecycle shell.
+  # The private API key is read by run-demo.sh, never passed on the command line.
+  tmux new-session -d -s "$session" 'bash .devcontainer/run-demo.sh'
+  echo "Starting LimitCore with Java 25, Maven and private Redis."
+else
+  echo "Existing Maven session detected; checking API readiness (not just a PID)."
 fi
-if curl -fsS --connect-timeout 2 --max-time 3 http://127.0.0.1:8080/actuator/health/liveness >/dev/null 2>&1; then
-  echo "LimitCore preview already responds on port 8080."
-  exit 0
-fi
-# Detach from the lifecycle hook; the preview stays alive while Codespaces runs.
-# Only the *path* to the private key enters argv; its value stays out of argv/logs.
-nohup bash -c '
-  export LIMITCORE_API_KEY="$(cat "$1")"
-  export LIMITCORE_KEY_SCOPE=tenant
-  export LIMITCORE_TRACING_SAMPLE_RATE=0
-  exec mvn -B -ntp -DskipTests spring-boot:run
-' _ "$keyfile" >"$logfile" 2>&1 </dev/null &
-echo "$!" > "$pidfile"
+echo "Logs: $logfile"
 
-echo "LimitCore preview is starting (Java 25 + private Redis container)."
-echo "Logs: tail -f $logfile"
-echo "Your disposable API key is in $keyfile (do not share it)."
-echo "The Codespaces port 8080 is private by default; do NOT set it public."
+# The postStart hook must return promptly so Codespaces can open the editor.
+if [[ "$mode" == "--background" ]]; then
+  exit 0
+fi
+
+# Cold Maven downloads may take a while. Never call the API ready based only on
+# the presence of a process. Preserve the session if startup times out.
+for ((attempt=1; attempt<=90; attempt++)); do
+  if health; then
+    echo "PASS: LimitCore liveness UP on http://localhost:8080"
+    if readiness; then
+      echo "PASS: Redis readiness UP; API is ready."
+      exit 0
+    fi
+    echo "WARNING: API started but Redis readiness is not UP." >&2
+    diagnose
+    exit 1
+  fi
+  if ! session_live; then
+    echo "ERROR: the preview process exited before becoming healthy." >&2
+    diagnose
+    exit 1
+  fi
+  sleep 2
+done
+
+echo "The preview is still not responding after 180 seconds." >&2
+echo "If Maven is still downloading dependencies, inspect logs and retry --status." >&2
+diagnose
+exit 1

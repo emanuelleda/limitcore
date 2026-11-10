@@ -7,12 +7,17 @@ O [GitHub Codespaces](https://docs.github.com/pt/codespaces) permite **demonstra
 ## Iniciar
 
 1. No [repositório LimitCore](https://github.com/emanuelleda/limitcore), abra **Code → Codespaces → Create codespace on main**.
-2. O Codespaces prepara **Java 25 + Maven + Redis** e executa a API automaticamente com credencial temporária criada dentro do Codespace.
-3. Aguarde o Maven terminar a primeira inicialização; no terminal do Codespace, consulte:
+2. O Codespaces prepara **Java 25 + Maven + Redis** e inicia a API em uma sessão destacada de `tmux`, com uma credencial temporária criada dentro do Codespace. Se já tiver um Codespace anterior à correção de novembro, primeiro execute **Command Palette → Codespaces: Rebuild Container** para instalar o `tmux`.
+3. No terminal **dentro do Codespaces**, execute:
    ```bash
-   tail -f ~/.local/state/limitcore-demo/app.log
+   bash .devcontainer/start-demo.sh
+   bash .devcontainer/start-demo.sh --status
    ```
-   `Started LimitCoreApplication` indica que a aplicação iniciou.
+   O primeiro comando aguarda até três minutos por uma API saudável; em uma primeira instalação o Maven pode precisar de mais tempo. Consulte o log sem mostrar a chave:
+   ```bash
+   tail -n 80 ~/.local/state/limitcore-demo/app.log
+   ```
+   O status deve indicar **liveness UP** e **readiness UP**. O script não interpreta a existência de um PID como prova de que a API iniciou.
 4. Na aba **Ports**, abra a porta **8080**. Ela deve continuar **Private**; não use `Public`.
 
 ## Testar
@@ -31,6 +36,25 @@ curl -fsS -X POST http://localhost:8080/v1/limits/check \
 Resposta esperada do segundo comando: JSON com `allowed` e `algorithm`. O algoritmo de demonstração é `token-bucket` e a quota é compartilhada pelo tenant.
 
 Quando a aplicação for reiniciada junto com o Codespace, o hook `postStartCommand` verifica se ela já está funcionando e tenta iniciá-la novamente se necessário.
+
+## Diagnóstico quando a porta 8080 recusa conexão
+
+O indicador `process already running` das versões anteriores verificava apenas um PID e podia deixar a impressão de que a API estava saudável. A configuração atual usa uma sessão independente de `tmux` e valida tanto liveness como readiness.
+
+```bash
+cd /workspaces/limitcore
+bash .devcontainer/start-demo.sh --status
+tail -n 100 ~/.local/state/limitcore-demo/app.log
+tmux list-sessions
+```
+
+Se o Maven tiver encerrado com erro, o diagnóstico mostra a saída. Para reiniciar **somente a demonstração do LimitCore**:
+
+```bash
+bash .devcontainer/start-demo.sh --restart
+```
+
+Isso não modifica a VPS nem os bancos de dados externos. O Redis da demonstração é efêmero. Não execute os comandos no notebook ou na VPS: o arquivo de credencial e a porta 8080 são internos ao Codespace.
 
 ## Segurança e custos
 
