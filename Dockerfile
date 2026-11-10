@@ -17,7 +17,7 @@ LABEL org.opencontainers.image.source="https://github.com/emanuelleda/limitcore"
 RUN apt-get update -o Acquire::Retries=0 \
     && apt-get install -y --no-install-recommends --only-upgrade \
       -o Acquire::Retries=0 apt libapt-pkg7.0 \
-    && dpkg --compare-versions "$(dpkg-query -W -f='\${Version}' apt)" ge '3.2.1ubuntu0.1' \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge '3.2.1ubuntu0.1' \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -u 10001 app
 WORKDIR /app
