@@ -13,7 +13,7 @@
       "onAutoForward": "notify"
     }
   },
-  "postStartCommand": "bash .devcontainer/start-demo.sh",
+  "postStartCommand": "bash .devcontainer/start-demo.sh --background",
   "customizations": {
     "vscode": {
       "extensions": ["vscjava.vscode-java-pack"]
