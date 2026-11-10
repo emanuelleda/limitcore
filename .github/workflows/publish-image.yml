@@ -55,7 +55,7 @@ jobs:
           if [[ -n "$SONAR_ORGANIZATION" ]]; then PARAMS+=("-Dsonar.organization=$SONAR_ORGANIZATION"); fi
           if [[ -n "$SONAR_HOST_URL" ]]; then PARAMS+=("-Dsonar.host.url=$SONAR_HOST_URL"); fi
           mvn -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar "${PARAMS[@]}"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Tag immutable image version
         id: metadata
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
